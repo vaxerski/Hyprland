@@ -3,7 +3,7 @@
 #include "macros.hpp"
 #include "protocols/ColorManagement.hpp"
 #include "protocols/core/Subcompositor.hpp"
-#include "protocols/types/ColorManagement.hpp"
+#include "../helpers/cm/ColorManagement.hpp"
 
 using namespace NColorManagement;
 

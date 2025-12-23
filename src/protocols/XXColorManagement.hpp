@@ -6,7 +6,7 @@
 #include "WaylandProtocol.hpp"
 #include "core/Compositor.hpp"
 #include "xx-color-management-v4.hpp"
-#include "types/ColorManagement.hpp"
+#include "../helpers/cm/ColorManagement.hpp"
 
 class CXXColorManager;
 class CXXColorManagementOutput;

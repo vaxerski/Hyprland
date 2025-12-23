@@ -21,6 +21,7 @@
   hyprutils,
   hyprwayland-scanner,
   hyprwire,
+  lcms2,
   libGL,
   libdrm,
   libexecinfo,
@@ -151,6 +152,7 @@ in
           hyprlang
           hyprutils
           hyprwire
+          lcms2
           libdrm
           libGL
           libinput

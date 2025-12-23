@@ -2,7 +2,7 @@
 #include "../Compositor.hpp"
 #include "ColorManagement.hpp"
 #include "color-management-v1.hpp"
-#include "types/ColorManagement.hpp"
+#include "../helpers/cm/ColorManagement.hpp"
 #include "xx-color-management-v4.hpp"
 
 using namespace NColorManagement;
@@ -587,8 +587,9 @@ CXXColorManagementImageDescriptionInfo::CXXColorManagementImageDescriptionInfo(S
 
     const auto toProto = [](float value) { return sc<int32_t>(std::round(value * 10000)); };
 
-    if (m_settings.icc.fd >= 0)
-        m_resource->sendIccFile(m_settings.icc.fd, m_settings.icc.length);
+    //FIXME:
+    // if (m_settings.icc.fd >= 0)
+    //   m_resource->sendIccFile(m_settings.icc.fd, m_settings.icc.length);
 
     // send preferred client paramateres
     m_resource->sendPrimaries(toProto(m_settings.primaries.red.x), toProto(m_settings.primaries.red.y), toProto(m_settings.primaries.green.x),
