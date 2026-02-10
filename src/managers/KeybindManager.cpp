@@ -2574,7 +2574,7 @@ SDispatchResult CKeybindManager::pinActive(std::string args) {
         return {.success = false, .error = "pin: window not found"};
     }
 
-    PWINDOW->m_workspace = PMONITOR->m_activeWorkspace;
+    PWINDOW->moveToWorkspace(PMONITOR->m_activeWorkspace);
 
     PWINDOW->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_PINNED);
 
@@ -2585,6 +2585,8 @@ SDispatchResult CKeybindManager::pinActive(std::string args) {
 
     g_pEventManager->postEvent(SHyprIPCEvent{"pin", std::format("{:x},{}", rc<uintptr_t>(PWINDOW.get()), sc<int>(PWINDOW->m_pinned))});
     EMIT_HOOK_EVENT("pin", PWINDOW);
+
+    g_pHyprRenderer->damageWindow(PWINDOW, true);
 
     return {};
 }
