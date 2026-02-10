@@ -213,9 +213,9 @@ void CDefaultFloatingAlgorithm::moveTargetInDirection(SP<ITarget> t, Math::eDire
 
     switch (dir) {
         case Math::DIRECTION_LEFT: pos.x = work.x + EXTENTS.topLeft.x; break;
-        case Math::DIRECTION_RIGHT: pos.x = work.x + work.w - pos.w - EXTENTS.bottomRight.x - EXTENTS.topLeft.x; break;
+        case Math::DIRECTION_RIGHT: pos.x = work.x + work.w - pos.w - EXTENTS.bottomRight.x; break;
         case Math::DIRECTION_UP: pos.y = work.y + EXTENTS.topLeft.y; break;
-        case Math::DIRECTION_DOWN: pos.y = work.y + work.h - pos.h - EXTENTS.bottomRight.y - EXTENTS.topLeft.y; break;
+        case Math::DIRECTION_DOWN: pos.y = work.y + work.h - pos.h - EXTENTS.bottomRight.y; break;
         default: Log::logger->log(Log::ERR, "Invalid direction in CDefaultFloatingAlgorithm::moveTargetInDirection"); break;
     }
 
