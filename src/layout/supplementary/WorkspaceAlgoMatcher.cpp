@@ -59,7 +59,7 @@ bool CWorkspaceAlgoMatcher::registerTiledAlgo(const std::string& name, const std
 }
 
 bool CWorkspaceAlgoMatcher::registerFloatingAlgo(const std::string& name, const std::type_info* typeInfo, std::function<UP<IFloatingAlgorithm>()>&& factory) {
-    if (algoForNameTiled(name) || algoForNameFloat(name))
+    if (m_tiledAlgos.contains(name) || m_floatingAlgos.contains(name))
         return false;
 
     m_floatingAlgos.emplace(name, std::move(factory));
@@ -124,7 +124,7 @@ void CWorkspaceAlgoMatcher::updateWorkspaceLayouts() {
 
         const auto LAYOUT_TO_USE = tiledAlgoForWorkspace(ws.lock());
 
-        if (m_algoNames.at(&typeid(*TILED_ALGO.get())) == LAYOUT_TO_USE)
+        if (m_algoNames.contains(&typeid(*TILED_ALGO.get())) && m_algoNames.at(&typeid(*TILED_ALGO.get())) == LAYOUT_TO_USE)
             continue;
 
         // needs a switchup

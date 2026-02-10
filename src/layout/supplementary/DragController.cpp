@@ -94,7 +94,13 @@ void CDragStateController::dragBegin(SP<ITarget> target, eMouseBindMode mode) {
 
     // Window will be floating. Let's check if it's valid. It should be, but I don't like crashing.
     if (!validMapped(DRAGGINGTARGET->window())) {
-        Log::logger->log(Log::ERR, "Dragging attempted on an invalid window!");
+        Log::logger->log(Log::ERR, "Dragging attempted on an invalid window (not mapped)");
+        CKeybindManager::changeMouseBindMode(MBIND_INVALID);
+        return;
+    }
+
+    if (!DRAGGINGTARGET->workspace()) {
+        Log::logger->log(Log::ERR, "Dragging attempted on an invalid window (no workspace)");
         CKeybindManager::changeMouseBindMode(MBIND_INVALID);
         return;
     }
