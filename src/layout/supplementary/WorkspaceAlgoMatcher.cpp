@@ -71,7 +71,7 @@ bool CWorkspaceAlgoMatcher::registerFloatingAlgo(const std::string& name, const 
 }
 
 bool CWorkspaceAlgoMatcher::unregisterAlgo(const std::string& name) {
-    if (!algoForNameTiled(name) && !algoForNameFloat(name))
+    if (!m_tiledAlgos.contains(name) && !m_floatingAlgos.contains(name))
         return false;
 
     std::erase_if(m_algoNames, [&name](const auto& e) { return e.second == name; });
