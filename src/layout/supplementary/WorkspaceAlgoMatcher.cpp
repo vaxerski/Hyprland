@@ -47,7 +47,7 @@ CWorkspaceAlgoMatcher::CWorkspaceAlgoMatcher() {
 }
 
 bool CWorkspaceAlgoMatcher::registerTiledAlgo(const std::string& name, const std::type_info* typeInfo, std::function<UP<ITiledAlgorithm>()>&& factory) {
-    if (algoForNameTiled(name) || algoForNameFloat(name))
+    if (m_tiledAlgos.contains(name) || m_floatingAlgos.contains(name))
         return false;
 
     m_tiledAlgos.emplace(name, std::move(factory));
