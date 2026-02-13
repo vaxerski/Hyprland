@@ -263,3 +263,10 @@ size_t CScrollTapeController::getStripAtCenter(const CBox& usableArea, bool full
 
     return m_strips.empty() ? 0 : m_strips.size() - 1;
 }
+
+void CScrollTapeController::swapStrips(size_t a, size_t b) {
+    if (a >= m_strips.size() || b >= m_strips.size())
+        return;
+
+    std::swap(m_strips.at(a), m_strips.at(b));
+}

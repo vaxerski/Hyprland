@@ -45,6 +45,7 @@ namespace Layout::Tiled {
         size_t            stripCount() const;
         SStripData&       getStrip(size_t index);
         const SStripData& getStrip(size_t index) const;
+        void              swapStrips(size_t a, size_t b);
 
         void              setOffset(double offset);
         double            getOffset() const;

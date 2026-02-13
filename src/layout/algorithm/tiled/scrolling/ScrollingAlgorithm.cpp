@@ -1154,10 +1154,9 @@ std::expected<void, std::string> CScrollingAlgorithm::layoutMsg(const std::strin
         else
             return {};
 
-        auto& col1 = m_scrollingData->columns[currentIdx];
-        auto& col2 = m_scrollingData->columns[targetIdx];
+        std::swap(m_scrollingData->columns.at(currentIdx), m_scrollingData->columns.at(targetIdx));
 
-        std::iter_swap(col1, col2);
+        m_scrollingData->controller->swapStrips(currentIdx, targetIdx);
 
         m_scrollingData->recalculate();
         m_scrollingData->centerOrFitCol(CURRENT_COL);
