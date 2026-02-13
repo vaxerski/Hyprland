@@ -1154,28 +1154,13 @@ std::expected<void, std::string> CScrollingAlgorithm::layoutMsg(const std::strin
         else
             return {};
 
-        // swap only the targetDatas (clients), not the entire column objects
-        // this preserves column widths and controller state
         auto& col1 = m_scrollingData->columns[currentIdx];
         auto& col2 = m_scrollingData->columns[targetIdx];
 
-        std::swap(col1->targetDatas, col2->targetDatas);
+        std::iter_swap(col1, col2);
 
-        for (auto& target : col1->targetDatas) {
-            target->column = col1;
-        }
-        for (auto& target : col2->targetDatas) {
-            target->column = col2;
-        }
-
-        if (m_scrollingData->controller) {
-            auto& strip1 = m_scrollingData->controller->getStrip(currentIdx);
-            auto& strip2 = m_scrollingData->controller->getStrip(targetIdx);
-            std::swap(strip1.targetSizes, strip2.targetSizes);
-        }
-
-        m_scrollingData->centerOrFitCol(CURRENT_COL);
         m_scrollingData->recalculate();
+        m_scrollingData->centerOrFitCol(CURRENT_COL);
     }
 
     return {};
