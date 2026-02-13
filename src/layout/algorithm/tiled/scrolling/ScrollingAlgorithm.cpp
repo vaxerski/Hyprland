@@ -647,32 +647,73 @@ void CScrollingAlgorithm::resizeTarget(const Vector2D& delta, SP<ITarget> target
     if (!DATA->column || !DATA->column->scrollingData)
         return;
 
-    const auto ADJUSTED_DELTA = m_scrollingData->controller->isPrimaryHorizontal() ? delta : Vector2D{delta.y, delta.x};
-    const auto USABLE         = usableArea();
-    const auto DELTA_AS_PERC  = ADJUSTED_DELTA / USABLE.size();
-    Vector2D   modDelta       = ADJUSTED_DELTA;
+    static const auto PFSONONE = CConfigValue<Hyprlang::INT>("scrolling:fullscreen_on_one_column");
 
-    const auto CURR_COLUMN = DATA->column.lock();
-    const auto NEXT_COLUMN = m_scrollingData->next(CURR_COLUMN);
-    const auto PREV_COLUMN = m_scrollingData->prev(CURR_COLUMN);
+    const auto        ADJUSTED_DELTA = m_scrollingData->controller->isPrimaryHorizontal() ? delta : Vector2D{delta.y, delta.x};
+    const auto        USABLE         = usableArea();
+    const auto        DELTA_AS_PERC  = ADJUSTED_DELTA / USABLE.size();
+    Vector2D          modDelta       = ADJUSTED_DELTA;
+
+    const auto        CURR_COLUMN = DATA->column.lock();
+    const int64_t     COL_IDX     = m_scrollingData->idx(CURR_COLUMN);
+
+    if (COL_IDX < 0)
+        return;
+
+    const double currentStart = m_scrollingData->controller->calculateStripStart(COL_IDX, USABLE, *PFSONONE);
+    const double currentSize  = m_scrollingData->controller->calculateStripSize(COL_IDX, USABLE, *PFSONONE);
+    const double currentEnd   = currentStart + currentSize;
+
+    const double cameraOffset   = m_scrollingData->controller->getOffset();
+    const bool   isPrimaryHoriz = m_scrollingData->controller->isPrimaryHorizontal();
+    const double usablePrimary  = isPrimaryHoriz ? USABLE.w : USABLE.h;
+
+    const double onScreenStart = currentStart - cameraOffset;
+    const double onScreenEnd   = currentEnd - cameraOffset;
 
     switch (corner) {
         case CORNER_BOTTOMLEFT:
         case CORNER_TOPLEFT: {
-            if (!PREV_COLUMN)
-                break;
+            // resize from left edge (inner edge) - grow/shrink column width and adjust offset to keep RIGHT edge stationary
+            const float oldWidth       = CURR_COLUMN->getColumnWidth();
+            const float requestedDelta = -(float)DELTA_AS_PERC.x; // negative delta means grow when dragging left
+            float       actualDelta    = requestedDelta;
 
-            PREV_COLUMN->setColumnWidth(std::clamp(PREV_COLUMN->getColumnWidth() + (float)DELTA_AS_PERC.x, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH));
-            CURR_COLUMN->setColumnWidth(std::clamp(CURR_COLUMN->getColumnWidth() - (float)DELTA_AS_PERC.x, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH));
+            // clamp delta so we don't shrink below MIN or grow above MAX
+            const float newWidthUnclamped = oldWidth + actualDelta;
+            const float newWidthClamped   = std::clamp(newWidthUnclamped, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH);
+            actualDelta                   = newWidthClamped - oldWidth;
+
+            if (actualDelta * usablePrimary > onScreenStart)
+                actualDelta = onScreenStart / usablePrimary;
+
+            if (actualDelta != 0.F) {
+                CURR_COLUMN->setColumnWidth(oldWidth + actualDelta);
+                // adjust camera offset so the RIGHT edge stays stationary on screen
+                // when column grows (actualDelta > 0), we need to increase offset by the same amount
+                m_scrollingData->controller->adjustOffset(actualDelta * usablePrimary);
+            }
             break;
         }
         case CORNER_BOTTOMRIGHT:
         case CORNER_TOPRIGHT: {
-            if (!NEXT_COLUMN)
-                break;
+            // resize from right edge (outer edge) - adjust column width only, keep left edge fixed
+            const float oldWidth       = CURR_COLUMN->getColumnWidth();
+            const float requestedDelta = (float)DELTA_AS_PERC.x;
+            float       actualDelta    = requestedDelta;
 
-            NEXT_COLUMN->setColumnWidth(std::clamp(NEXT_COLUMN->getColumnWidth() - (float)DELTA_AS_PERC.x, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH));
-            CURR_COLUMN->setColumnWidth(std::clamp(CURR_COLUMN->getColumnWidth() + (float)DELTA_AS_PERC.x, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH));
+            // clamp delta so we don't shrink below MIN or grow above MAX
+            const float newWidthUnclamped = oldWidth + actualDelta;
+            const float newWidthClamped   = std::clamp(newWidthUnclamped, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH);
+            actualDelta                   = newWidthClamped - oldWidth;
+
+            // also clamp so right edge doesn't go past right viewport boundary
+            if (onScreenEnd + (actualDelta * usablePrimary) > usablePrimary)
+                actualDelta = (usablePrimary - onScreenEnd) / usablePrimary;
+
+            if (actualDelta != 0.F)
+                CURR_COLUMN->setColumnWidth(oldWidth + actualDelta);
+
             break;
         }
 

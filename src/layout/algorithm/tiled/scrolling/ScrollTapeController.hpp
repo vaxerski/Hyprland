@@ -76,6 +76,7 @@ namespace Layout::Tiled {
         double                  getSecondary(const Vector2D& v) const;
         void                    setPrimary(Vector2D& v, double val) const;
         void                    setSecondary(Vector2D& v, double val) const;
+        bool                    isBeingDragged() const;
 
         Vector2D                makeVector(double primary, double secondary) const;
     };

@@ -1,4 +1,5 @@
 #include "ScrollTapeController.hpp"
+#include "ScrollingAlgorithm.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -194,8 +195,8 @@ double CScrollTapeController::calculateCameraOffset(const CBox& usableArea, bool
     const double maxExtent     = calculateMaxExtent(usableArea, fullscreenOnOne);
     const double usablePrimary = getPrimary(usableArea.size());
 
-    if (maxExtent < usablePrimary) {
-        // content fits in viewport, center it
+    if (maxExtent < usablePrimary && !isBeingDragged()) {
+        // content fits in viewport, center it, unless we are dragging any of our targets
         return std::round((maxExtent - usablePrimary) / 2.0);
     }
 
@@ -269,4 +270,18 @@ void CScrollTapeController::swapStrips(size_t a, size_t b) {
         return;
 
     std::swap(m_strips.at(a), m_strips.at(b));
+}
+
+bool CScrollTapeController::isBeingDragged() const {
+    for (const auto& s : m_strips) {
+        if (!s.userData)
+            continue;
+
+        for (const auto& d : s.userData->targetDatas) {
+            if (d->target == g_layoutManager->dragController()->target())
+                return true;
+        }
+    }
+
+    return false;
 }
