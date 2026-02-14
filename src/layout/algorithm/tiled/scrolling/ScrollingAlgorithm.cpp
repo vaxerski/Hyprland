@@ -777,6 +777,9 @@ void CScrollingAlgorithm::resizeTarget(const Vector2D& delta, SP<ITarget> target
 }
 
 void CScrollingAlgorithm::recalculate() {
+    if (Desktop::focusState()->window())
+        focusOnInput(Desktop::focusState()->window()->layoutTarget(), true);
+
     m_scrollingData->recalculate();
 }
 
@@ -1199,8 +1202,8 @@ std::expected<void, std::string> CScrollingAlgorithm::layoutMsg(const std::strin
 
         m_scrollingData->controller->swapStrips(currentIdx, targetIdx);
 
-        m_scrollingData->recalculate();
         m_scrollingData->centerOrFitCol(CURRENT_COL);
+        m_scrollingData->recalculate();
     }
 
     return {};

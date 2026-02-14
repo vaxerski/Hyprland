@@ -1603,7 +1603,7 @@ SDispatchResult CKeybindManager::swapActive(std::string args) {
     Log::logger->log(Log::DEBUG, "Swapping active window with {}", args);
 
     updateRelativeCursorCoords();
-    g_layoutManager->switchTargets(PLASTWINDOW->layoutTarget(), PWINDOWTOCHANGETO->layoutTarget(), false);
+    g_layoutManager->switchTargets(PLASTWINDOW->layoutTarget(), PWINDOWTOCHANGETO->layoutTarget(), true);
     PLASTWINDOW->warpCursor();
     return {};
 }

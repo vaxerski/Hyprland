@@ -206,11 +206,10 @@ double CScrollTapeController::calculateCameraOffset(const CBox& usableArea, bool
 Vector2D CScrollTapeController::getCameraTranslation(const CBox& usableArea, bool fullscreenOnOne) const {
     const double offset = calculateCameraOffset(usableArea, fullscreenOnOne);
 
-    if (isReversed()) {
+    if (isReversed())
         return makeVector(offset, 0.0);
-    } else {
+    else
         return makeVector(-offset, 0.0);
-    }
 }
 
 void CScrollTapeController::centerStrip(size_t stripIndex, const CBox& usableArea, bool fullscreenOnOne) {
