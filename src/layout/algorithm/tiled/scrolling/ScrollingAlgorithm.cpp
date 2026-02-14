@@ -1182,15 +1182,7 @@ std::expected<void, std::string> CScrollingAlgorithm::layoutMsg(const std::strin
         const std::string& direction = ARGS[1];
         int64_t            targetIdx = -1;
 
-        const auto         TAPE_DIR   = getDynamicDirection();
-        const bool         isLeftMove = (direction == "l");
-
-        // ignore swaps to the "origin" (before first column) when moving opposite to tape direction
-        if (currentIdx == 0 && isLeftMove && (TAPE_DIR == SCROLL_DIR_RIGHT || TAPE_DIR == SCROLL_DIR_DOWN))
-            return {};
-        if (currentIdx == (int64_t)colCount - 1 && !isLeftMove && (TAPE_DIR == SCROLL_DIR_LEFT || TAPE_DIR == SCROLL_DIR_UP))
-            return {};
-
+        // wrap around swaps
         if (direction == "l")
             targetIdx = (currentIdx == 0) ? (colCount - 1) : (currentIdx - 1);
         else if (direction == "r")
