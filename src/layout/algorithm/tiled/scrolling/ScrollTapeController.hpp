@@ -55,10 +55,10 @@ namespace Layout::Tiled {
         double            calculateStripStart(size_t stripIndex, const CBox& usableArea, bool fullscreenOnOne = false) const;
         double            calculateStripSize(size_t stripIndex, const CBox& usableArea, bool fullscreenOnOne = false) const;
 
-        CBox              calculateTargetBox(size_t stripIndex, size_t targetIndex, const CBox& usableArea, const Vector2D& workspaceOffset, bool fullscreenOnOne = false) const;
+        CBox              calculateTargetBox(size_t stripIndex, size_t targetIndex, const CBox& usableArea, const Vector2D& workspaceOffset, bool fullscreenOnOne = false);
 
-        double            calculateCameraOffset(const CBox& usableArea, bool fullscreenOnOne = false) const;
-        Vector2D          getCameraTranslation(const CBox& usableArea, bool fullscreenOnOne = false) const;
+        double            calculateCameraOffset(const CBox& usableArea, bool fullscreenOnOne = false);
+        Vector2D          getCameraTranslation(const CBox& usableArea, bool fullscreenOnOne = false);
 
         void              centerStrip(size_t stripIndex, const CBox& usableArea, bool fullscreenOnOne = false);
         void              fitStrip(size_t stripIndex, const CBox& usableArea, bool fullscreenOnOne = false);

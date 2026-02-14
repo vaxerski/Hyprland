@@ -671,6 +671,9 @@ void CScrollingAlgorithm::resizeTarget(const Vector2D& delta, SP<ITarget> target
     const double onScreenStart = currentStart - cameraOffset;
     const double onScreenEnd   = currentEnd - cameraOffset;
 
+    // set the offset because we'll prevent centering during a drag
+    m_scrollingData->controller->setOffset(cameraOffset);
+
     switch (corner) {
         case CORNER_BOTTOMLEFT:
         case CORNER_TOPLEFT: {

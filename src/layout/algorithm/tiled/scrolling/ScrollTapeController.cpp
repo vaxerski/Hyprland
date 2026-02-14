@@ -144,7 +144,7 @@ double CScrollTapeController::calculateStripSize(size_t stripIndex, const CBox& 
     return usablePrimary * m_strips[stripIndex].size;
 }
 
-CBox CScrollTapeController::calculateTargetBox(size_t stripIndex, size_t targetIndex, const CBox& usableArea, const Vector2D& workspaceOffset, bool fullscreenOnOne) const {
+CBox CScrollTapeController::calculateTargetBox(size_t stripIndex, size_t targetIndex, const CBox& usableArea, const Vector2D& workspaceOffset, bool fullscreenOnOne) {
     if (stripIndex >= m_strips.size())
         return {};
 
@@ -191,19 +191,26 @@ CBox CScrollTapeController::calculateTargetBox(size_t stripIndex, size_t targetI
     return CBox{pos, size};
 }
 
-double CScrollTapeController::calculateCameraOffset(const CBox& usableArea, bool fullscreenOnOne) const {
+double CScrollTapeController::calculateCameraOffset(const CBox& usableArea, bool fullscreenOnOne) {
     const double maxExtent     = calculateMaxExtent(usableArea, fullscreenOnOne);
     const double usablePrimary = getPrimary(usableArea.size());
 
-    if (maxExtent < usablePrimary && !isBeingDragged()) {
-        // content fits in viewport, center it, unless we are dragging any of our targets
-        return std::round((maxExtent - usablePrimary) / 2.0);
-    }
+    // don't adjust the offset if we are dragging
+    if (isBeingDragged())
+        return m_offset;
+
+    // if the content fits in viewport, center it
+    if (maxExtent < usablePrimary)
+        m_offset = std::round((maxExtent - usablePrimary) / 2.0);
+
+    // if the offset is negative but we already extended, reset offset to 0
+    if (maxExtent > usablePrimary && m_offset < 0.0)
+        m_offset = 0.0;
 
     return m_offset;
 }
 
-Vector2D CScrollTapeController::getCameraTranslation(const CBox& usableArea, bool fullscreenOnOne) const {
+Vector2D CScrollTapeController::getCameraTranslation(const CBox& usableArea, bool fullscreenOnOne) {
     const double offset = calculateCameraOffset(usableArea, fullscreenOnOne);
 
     if (isReversed())

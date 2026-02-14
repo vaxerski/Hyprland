@@ -86,6 +86,7 @@ namespace Layout::Tiled {
 
         CScrollingAlgorithm*         algorithm = nullptr;
         WP<SScrollingData>           self;
+        std::optional<double>        lockedCameraOffset;
     };
 
     class CScrollingAlgorithm : public ITiledAlgorithm {
