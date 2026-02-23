@@ -121,7 +121,7 @@ class CCompositor {
     WORKSPACEID            getNextAvailableNamedWorkspace();
     bool                   isPointOnAnyMonitor(const Vector2D&);
     bool                   isPointOnReservedArea(const Vector2D& point, const PHLMONITOR monitor = nullptr);
-    CBox                   calculateX11WorkArea();
+    std::optional<CBox>    calculateX11WorkArea();
     PHLMONITOR             getMonitorInDirection(Math::eDirection);
     PHLMONITOR             getMonitorInDirection(PHLMONITOR, Math::eDirection);
     void                   updateAllWindowsAnimatedDecorationValues();
