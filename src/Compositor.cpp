@@ -1629,8 +1629,6 @@ bool CCompositor::isPointOnReservedArea(const Vector2D& point, const PHLMONITOR 
 
 std::optional<CBox> CCompositor::calculateX11WorkArea() {
     static auto PXWLFORCESCALEZERO = CConfigValue<Hyprlang::INT>("xwayland:force_zero_scaling");
-    CBox        workbox            = {0, 0, 0, 0};
-
     // We more than likely won't be able to calculate one
     // and even if we could this is minor
     if (m_monitors.size() > 1)
