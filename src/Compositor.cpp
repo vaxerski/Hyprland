@@ -2752,8 +2752,13 @@ void CCompositor::arrangeMonitors() {
 
 #ifndef NO_XWAYLAND
     const auto box = g_pCompositor->calculateX11WorkArea();
-    if (g_pXWayland && g_pXWayland->m_wm && box)
-        g_pXWayland->m_wm->updateWorkArea(box->x, box->y, box->w, box->h);
+    if (g_pXWayland && g_pXWayland->m_wm) {
+        if (box)
+            g_pXWayland->m_wm->updateWorkArea(box->x, box->y, box->w, box->h);
+        else
+            g_pXWayland->m_wm->updateWorkArea(0, 0, 0, 0);
+    }
+
 #endif
 }
 
