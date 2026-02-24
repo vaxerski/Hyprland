@@ -249,9 +249,11 @@ std::expected<SGeometryRequested, eGeometryFailure> CWindowTarget::desiredGeomet
     requested.size = clampSizeForDesired(DESIRED_GEOM.size());
 
     if (m_window->m_isX11) {
-        Vector2D xy   = {DESIRED_GEOM.x, DESIRED_GEOM.y};
-        xy            = g_pXWaylandManager->xwaylandToWaylandCoords(xy);
-        requested.pos = xy;
+        Vector2D xy    = {DESIRED_GEOM.x, DESIRED_GEOM.y};
+        xy             = g_pXWaylandManager->xwaylandToWaylandCoords(xy);
+        requested.pos  = xy;
+        DESIRED_GEOM.x = xy.x;
+        DESIRED_GEOM.y = xy.y;
     }
 
     const auto STOREDSIZE = m_window->m_ruleApplicator->persistentSize().valueOrDefault() ? g_pConfigManager->getStoredFloatingSize(m_window.lock()) : std::nullopt;

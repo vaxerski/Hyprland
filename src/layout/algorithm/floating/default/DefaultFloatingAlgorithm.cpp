@@ -88,7 +88,9 @@ void CDefaultFloatingAlgorithm::newTarget(SP<ITarget> target) {
     if (!posOverridden && (!DESIRED_GEOM || !DESIRED_GEOM->pos))
         windowGeometry = CBox{WORK_AREA.middle() - windowGeometry.size() / 2.F, windowGeometry.size()};
 
-    if (posOverridden || WORK_AREA.containsPoint(windowGeometry.middle()))
+    if (posOverridden                                                                           // pos is overridden by a rule
+        || (DESIRED_GEOM && DESIRED_GEOM->pos && target->window() && target->window()->m_isX11) // X11 window with a geom
+        || WORK_AREA.containsPoint(windowGeometry.middle()))                                    // geometry within work area
         target->setPositionGlobal(windowGeometry);
     else {
         const auto POS   = WORK_AREA.middle() - windowGeometry.size() / 2.f;
