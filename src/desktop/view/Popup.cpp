@@ -405,8 +405,12 @@ void CPopup::recheckChildrenRecursive() {
     for (auto const& c : cpy) {
         if (!c || !c->visible())
             continue;
-        c->onCommit(true);
-        c->recheckChildrenRecursive();
+
+        // keep ref, onCommit can call onDestroy
+        auto x = c.lock();
+
+        x->onCommit(true);
+        x->recheckChildrenRecursive();
     }
 }
 
