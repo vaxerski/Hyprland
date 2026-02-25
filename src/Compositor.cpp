@@ -1631,7 +1631,7 @@ std::optional<CBox> CCompositor::calculateX11WorkArea() {
     static auto PXWLFORCESCALEZERO = CConfigValue<Hyprlang::INT>("xwayland:force_zero_scaling");
     // We more than likely won't be able to calculate one
     // and even if we could this is minor
-    if (m_monitors.size() > 1)
+    if (m_monitors.size() > 1 || m_monitors.empty())
         return std::nullopt;
 
     const auto M = m_monitors.front();
