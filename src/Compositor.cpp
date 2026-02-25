@@ -1627,31 +1627,21 @@ bool CCompositor::isPointOnReservedArea(const Vector2D& point, const PHLMONITOR 
     return VECNOTINRECT(point, box.x, box.y, box.x + box.w, box.y + box.h);
 }
 
-CBox CCompositor::calculateX11WorkArea() {
+std::optional<CBox> CCompositor::calculateX11WorkArea() {
     static auto PXWLFORCESCALEZERO = CConfigValue<Hyprlang::INT>("xwayland:force_zero_scaling");
-    CBox        workbox            = {0, 0, 0, 0};
-    bool        firstMonitor       = true;
+    // We more than likely won't be able to calculate one
+    // and even if we could this is minor
+    if (m_monitors.size() > 1 || m_monitors.empty())
+        return std::nullopt;
 
-    for (const auto& monitor : m_monitors) {
-        // we ignore monitor->m_position on purpose
-        CBox box = monitor->logicalBoxMinusReserved().translate(-monitor->m_position);
-        if ((*PXWLFORCESCALEZERO))
-            box.scale(monitor->m_scale);
+    const auto M = m_monitors.front();
 
-        if (firstMonitor) {
-            firstMonitor = false;
-            workbox      = box;
-        } else {
-            // if this monitor creates a different workbox than previous monitor, we remove the _NET_WORKAREA property all together
-            if ((std::abs(box.x - workbox.x) > 3) || (std::abs(box.y - workbox.y) > 3) || (std::abs(box.w - workbox.w) > 3) || (std::abs(box.h - workbox.h) > 3)) {
-                workbox = {0, 0, 0, 0};
-                break;
-            }
-        }
-    }
+    // we ignore monitor->m_position on purpose
+    CBox box = M->logicalBoxMinusReserved().translate(-M->m_position);
+    if ((*PXWLFORCESCALEZERO))
+        box.scale(M->m_scale);
 
-    // returning 0, 0 will remove the _NET_WORKAREA property
-    return workbox;
+    return box.translate(M->m_xwaylandPosition);
 }
 
 PHLMONITOR CCompositor::getMonitorInDirection(Math::eDirection dir) {
@@ -2759,10 +2749,14 @@ void CCompositor::arrangeMonitors() {
     PROTO::xdgOutput->updateAllOutputs();
 
 #ifndef NO_XWAYLAND
-    CBox box = g_pCompositor->calculateX11WorkArea();
-    if (!g_pXWayland || !g_pXWayland->m_wm)
-        return;
-    g_pXWayland->m_wm->updateWorkArea(box.x, box.y, box.w, box.h);
+    const auto box = g_pCompositor->calculateX11WorkArea();
+    if (g_pXWayland && g_pXWayland->m_wm) {
+        if (box)
+            g_pXWayland->m_wm->updateWorkArea(box->x, box->y, box->w, box->h);
+        else
+            g_pXWayland->m_wm->updateWorkArea(0, 0, 0, 0);
+    }
+
 #endif
 }
 
