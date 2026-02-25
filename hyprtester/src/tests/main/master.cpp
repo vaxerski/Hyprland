@@ -3,7 +3,53 @@
 #include "../../hyprctlCompat.hpp"
 #include "tests.hpp"
 
-static int  ret = 0;
+static int ret = 0;
+
+// reqs 1 master 3 slaves
+static void testOrientations() {
+    OK(getFromSocket("/keyword master:orientation top"));
+
+    // top
+    {
+        auto str = getFromSocket("/activewindow");
+        EXPECT_CONTAINS(str, "at: 22,22");
+        EXPECT_CONTAINS(str, "size: 1876");
+    }
+
+    // cycle = top, right, bottom, center, left
+
+    // right
+    OK(getFromSocket("/dispatch layoutmsg orientationnext"));
+    {
+        auto str = getFromSocket("/activewindow");
+        EXPECT_CONTAINS(str, "at: 873,22");
+        EXPECT_CONTAINS(str, "size: 1025,1036");
+    }
+
+    // bottom
+    OK(getFromSocket("/dispatch layoutmsg orientationnext"));
+    {
+        auto str = getFromSocket("/activewindow");
+        EXPECT_CONTAINS(str, "at: 22,495");
+        EXPECT_CONTAINS(str, "size: 1876");
+    }
+
+    // center
+    OK(getFromSocket("/dispatch layoutmsg orientationnext"));
+    {
+        auto str = getFromSocket("/activewindow");
+        EXPECT_CONTAINS(str, "at: 450,22");
+        EXPECT_CONTAINS(str, "size: 1020,1036");
+    }
+
+    // left
+    OK(getFromSocket("/dispatch layoutmsg orientationnext"));
+    {
+        auto str = getFromSocket("/activewindow");
+        EXPECT_CONTAINS(str, "at: 22,22");
+        EXPECT_CONTAINS(str, "size: 1025,1036");
+    }
+}
 
 static void focusMasterPrevious() {
     // setup
@@ -43,6 +89,8 @@ static void focusMasterPrevious() {
 
     OK(getFromSocket("/dispatch layoutmsg focusmaster previous"));
     EXPECT_CONTAINS(getFromSocket("/activewindow"), "class: master");
+
+    testOrientations();
 
     // clean up
     NLog::log("{}Killing all windows", Colors::YELLOW);

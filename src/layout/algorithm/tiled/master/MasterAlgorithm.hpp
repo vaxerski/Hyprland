@@ -19,8 +19,8 @@ namespace Layout::Tiled {
     };
 
     struct SMasterWorkspaceData {
-        WORKSPACEID  workspaceID = WORKSPACE_INVALID;
-        eOrientation orientation = ORIENTATION_LEFT;
+        WORKSPACEID                 workspaceID = WORKSPACE_INVALID;
+        std::optional<eOrientation> explicitOrientation;
         // Previously focused non-master window when `focusmaster previous` command was issued
         WP<ITarget> focusMasterPrev;
 
@@ -71,5 +71,6 @@ namespace Layout::Tiled {
         SP<ITarget>                      getNextTarget(SP<ITarget>, bool, bool);
         int                              getMastersNo();
         bool                             isWindowTiled(PHLWINDOW);
+        eOrientation                     defaultOrientation();
     };
 };

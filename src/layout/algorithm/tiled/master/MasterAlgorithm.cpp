@@ -668,15 +668,15 @@ std::expected<void, std::string> CMasterAlgorithm::layoutMsg(const std::string_v
         g_pCompositor->setWindowFullscreenInternal(PWINDOW, FSMODE_NONE);
 
         if (command == "orientationleft")
-            m_workspaceData.orientation = ORIENTATION_LEFT;
+            m_workspaceData.explicitOrientation = ORIENTATION_LEFT;
         else if (command == "orientationright")
-            m_workspaceData.orientation = ORIENTATION_RIGHT;
+            m_workspaceData.explicitOrientation = ORIENTATION_RIGHT;
         else if (command == "orientationtop")
-            m_workspaceData.orientation = ORIENTATION_TOP;
+            m_workspaceData.explicitOrientation = ORIENTATION_TOP;
         else if (command == "orientationbottom")
-            m_workspaceData.orientation = ORIENTATION_BOTTOM;
+            m_workspaceData.explicitOrientation = ORIENTATION_BOTTOM;
         else if (command == "orientationcenter")
-            m_workspaceData.orientation = ORIENTATION_CENTER;
+            m_workspaceData.explicitOrientation = ORIENTATION_CENTER;
 
         calculateWorkspace();
     } else if (command == "orientationnext") {
@@ -837,6 +837,34 @@ void CMasterAlgorithm::buildOrientationCycleVectorFromEOperation(std::vector<eOr
     }
 }
 
+eOrientation CMasterAlgorithm::defaultOrientation() {
+    static auto PORIENT = CConfigValue<std::string>("master:orientation");
+
+    const auto  WORKSPACERULE = g_pConfigManager->getWorkspaceRuleFor(m_parent->space()->workspace());
+    std::string orientationString;
+    if (WORKSPACERULE.layoutopts.contains("orientation"))
+        orientationString = WORKSPACERULE.layoutopts.at("orientation");
+    else
+        orientationString = *PORIENT;
+
+    eOrientation orientation = ORIENTATION_LEFT;
+    // override if workspace rule is set
+    if (!orientationString.empty()) {
+        if (orientationString == "top")
+            orientation = ORIENTATION_TOP;
+        else if (orientationString == "right")
+            orientation = ORIENTATION_RIGHT;
+        else if (orientationString == "bottom")
+            orientation = ORIENTATION_BOTTOM;
+        else if (orientationString == "center")
+            orientation = ORIENTATION_CENTER;
+        else
+            orientation = ORIENTATION_LEFT;
+    }
+
+    return orientation;
+}
+
 void CMasterAlgorithm::runOrientationCycle(Hyprutils::String::CVarList2* vars, int next) {
     std::vector<eOrientation> cycle;
     if (vars != nullptr)
@@ -854,7 +882,7 @@ void CMasterAlgorithm::runOrientationCycle(Hyprutils::String::CVarList2* vars, i
 
     int nextOrPrev = 0;
     for (size_t i = 0; i < cycle.size(); ++i) {
-        if (m_workspaceData.orientation == cycle[i]) {
+        if (m_workspaceData.explicitOrientation.value_or(defaultOrientation()) == cycle[i]) {
             nextOrPrev = i + next;
             break;
         }
@@ -865,36 +893,12 @@ void CMasterAlgorithm::runOrientationCycle(Hyprutils::String::CVarList2* vars, i
     else if (nextOrPrev < 0)
         nextOrPrev = cycle.size() + (nextOrPrev % sc<int>(cycle.size()));
 
-    m_workspaceData.orientation = cycle.at(nextOrPrev);
+    m_workspaceData.explicitOrientation = cycle.at(nextOrPrev);
     calculateWorkspace();
 }
 
 eOrientation CMasterAlgorithm::getDynamicOrientation() {
-    static auto PORIENT = CConfigValue<std::string>("master:orientation");
-
-    const auto  WORKSPACERULE = g_pConfigManager->getWorkspaceRuleFor(m_parent->space()->workspace());
-    std::string orientationString;
-    if (WORKSPACERULE.layoutopts.contains("orientation"))
-        orientationString = WORKSPACERULE.layoutopts.at("orientation");
-    else
-        orientationString = *PORIENT;
-
-    eOrientation orientation = m_workspaceData.orientation;
-    // override if workspace rule is set
-    if (!orientationString.empty()) {
-        if (orientationString == "top")
-            orientation = ORIENTATION_TOP;
-        else if (orientationString == "right")
-            orientation = ORIENTATION_RIGHT;
-        else if (orientationString == "bottom")
-            orientation = ORIENTATION_BOTTOM;
-        else if (orientationString == "center")
-            orientation = ORIENTATION_CENTER;
-        else
-            orientation = ORIENTATION_LEFT;
-    }
-
-    return orientation;
+    return m_workspaceData.explicitOrientation.value_or(defaultOrientation());
 }
 
 int CMasterAlgorithm::getNodesNo() {
