@@ -166,7 +166,7 @@ class CKeybindManager {
 
     static void                      switchToWindow(PHLWINDOW PWINDOWTOCHANGETO, bool forceFSCycle = false);
     static uint64_t                  spawnRawProc(std::string, PHLWORKSPACE pInitialWorkspace, const std::string& execRuleToken = "");
-    static uint64_t                  spawnWithRules(std::string, PHLWORKSPACE pInitialWorkspace);
+    static std::optional<uint64_t>   spawnWithRules(std::string, PHLWORKSPACE pInitialWorkspace);
 
     // -------------- Dispatchers -------------- //
     static SDispatchResult closeActive(std::string);
