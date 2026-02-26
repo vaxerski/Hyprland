@@ -100,16 +100,14 @@ void CDwindleAlgorithm::addTarget(SP<ITarget> target, bool newTarget) {
             OPENINGON = getClosestNode(MOUSECOORDS);
 
     } else if (*PUSEACTIVE) {
-        if (Desktop::focusState()->window() && !Desktop::focusState()->window()->m_isFloating && Desktop::focusState()->window() != target->window() &&
-            Desktop::focusState()->window()->m_workspace == PWORKSPACE && Desktop::focusState()->window()->m_isMapped) {
-            OPENINGON = getNodeFromWindow(Desktop::focusState()->window());
-        } else {
-            OPENINGON = getNodeFromWindow(g_pCompositor->vectorToWindowUnified(MOUSECOORDS, Desktop::View::RESERVED_EXTENTS | Desktop::View::INPUT_EXTENTS));
-        }
+        const auto ACTIVE_WINDOW = Desktop::focusState()->window();
 
-        if (!OPENINGON && g_pCompositor->isPointOnReservedArea(MOUSECOORDS, ACTIVE_MON))
-            OPENINGON = getClosestNode(MOUSECOORDS);
+        if (!m_overrideFocalPoint && ACTIVE_WINDOW && !ACTIVE_WINDOW->m_isFloating && ACTIVE_WINDOW != target->window() && ACTIVE_WINDOW->m_workspace == PWORKSPACE &&
+            ACTIVE_WINDOW->m_isMapped)
+            OPENINGON = getNodeFromWindow(ACTIVE_WINDOW);
 
+        if (!OPENINGON)
+            OPENINGON = getClosestNode(MOUSECOORDS, target);
     } else
         OPENINGON = getFirstNode();
 
@@ -635,10 +633,13 @@ SP<SDwindleNodeData> CDwindleAlgorithm::getFirstNode() {
     return m_dwindleNodesData.empty() ? nullptr : m_dwindleNodesData.at(0);
 }
 
-SP<SDwindleNodeData> CDwindleAlgorithm::getClosestNode(const Vector2D& point) {
+SP<SDwindleNodeData> CDwindleAlgorithm::getClosestNode(const Vector2D& point, SP<ITarget> skip) {
     SP<SDwindleNodeData> res         = nullptr;
     double               distClosest = -1;
     for (auto& n : m_dwindleNodesData) {
+        if (skip && n->pTarget == skip)
+            continue;
+
         if (n->pTarget && Desktop::View::validMapped(n->pTarget->window())) {
             auto distAnother = vecToRectDistanceSquared(point, n->box.pos(), n->box.pos() + n->box.size());
             if (!res || distAnother < distClosest) {
