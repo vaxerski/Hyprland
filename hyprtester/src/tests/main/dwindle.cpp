@@ -54,24 +54,24 @@ static void test13349() {
 
     {
         auto str = getFromSocket("/activewindow");
-        EXPECT_CONTAINS(str, "at: 967,547");
-        EXPECT_CONTAINS(str, "size: 931,511");
+        EXPECT_CONTAINS(str, "at: 957,537");
+        EXPECT_CONTAINS(str, "size: 921,501");
     }
 
     OK(getFromSocket("/dispatch movewindow l"));
 
     {
         auto str = getFromSocket("/activewindow");
-        EXPECT_CONTAINS(str, "at: 22,547");
-        EXPECT_CONTAINS(str, "size: 931,511");
+        EXPECT_CONTAINS(str, "at: 22,537");
+        EXPECT_CONTAINS(str, "size: 921,501");
     }
 
     OK(getFromSocket("/dispatch movewindow r"));
 
     {
         auto str = getFromSocket("/activewindow");
-        EXPECT_CONTAINS(str, "at: 967,547");
-        EXPECT_CONTAINS(str, "size: 931,511");
+        EXPECT_CONTAINS(str, "at: 957,537");
+        EXPECT_CONTAINS(str, "size: 921,501");
     }
 
     // clean up
