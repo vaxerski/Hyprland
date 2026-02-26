@@ -36,12 +36,58 @@ static void testFloatClamp() {
     Tests::killAllWindows();
 }
 
+static void test13349() {
+
+    // Test if dwindle properly uses a focal point to place a new window.
+    // exposed by #13349 as a regression from #12890
+
+    for (auto const& win : {"a", "b", "c"}) {
+        if (!Tests::spawnKitty(win)) {
+            NLog::log("{}Failed to spawn kitty with win class `{}`", Colors::RED, win);
+            ++TESTS_FAILED;
+            ret = 1;
+            return;
+        }
+    }
+
+    OK(getFromSocket("/dispatch focuswindow class:c"));
+
+    {
+        auto str = getFromSocket("/activewindow");
+        EXPECT_CONTAINS(str, "at: 967,547");
+        EXPECT_CONTAINS(str, "size: 931,511");
+    }
+
+    OK(getFromSocket("/dispatch movewindow l"));
+
+    {
+        auto str = getFromSocket("/activewindow");
+        EXPECT_CONTAINS(str, "at: 22,547");
+        EXPECT_CONTAINS(str, "size: 931,511");
+    }
+
+    OK(getFromSocket("/dispatch movewindow r"));
+
+    {
+        auto str = getFromSocket("/activewindow");
+        EXPECT_CONTAINS(str, "at: 967,547");
+        EXPECT_CONTAINS(str, "size: 931,511");
+    }
+
+    // clean up
+    NLog::log("{}Killing all windows", Colors::YELLOW);
+    Tests::killAllWindows();
+}
+
 static bool test() {
     NLog::log("{}Testing Dwindle layout", Colors::GREEN);
 
     // test
     NLog::log("{}Testing float clamp", Colors::GREEN);
     testFloatClamp();
+
+    NLog::log("{}Testing #13349", Colors::GREEN);
+    test13349();
 
     // clean up
     NLog::log("Cleaning up", Colors::YELLOW);

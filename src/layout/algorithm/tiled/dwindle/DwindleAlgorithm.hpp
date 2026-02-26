@@ -45,7 +45,7 @@ namespace Layout::Tiled {
         SP<SDwindleNodeData>    getNodeFromWindow(PHLWINDOW w);
         int                     getNodes();
         SP<SDwindleNodeData>    getFirstNode();
-        SP<SDwindleNodeData>    getClosestNode(const Vector2D&);
+        SP<SDwindleNodeData>    getClosestNode(const Vector2D&, SP<ITarget> skip = nullptr);
         SP<SDwindleNodeData>    getMasterNode();
 
         void                    toggleSplit(SP<SDwindleNodeData>);
