@@ -158,6 +158,8 @@ CWindowRuleApplicator::SRuleResult CWindowRuleApplicator::applyDynamicRule(const
                             Types::COverridableVar(CGradientValueData(CHyprColor(configStringToInt(colorsAndAngles[0]).value_or(0))), Types::PRIORITY_WINDOW_RULE);
                         m_inactiveBorderColor.first =
                             Types::COverridableVar(CGradientValueData(CHyprColor(configStringToInt(colorsAndAngles[1]).value_or(0))), Types::PRIORITY_WINDOW_RULE);
+                        m_activeBorderColor.second |= rule->getPropertiesMask();
+                        m_inactiveBorderColor.second |= rule->getPropertiesMask();
                         break;
                     }
 
