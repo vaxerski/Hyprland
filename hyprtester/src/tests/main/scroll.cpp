@@ -45,7 +45,7 @@ static void testFocusCycling() {
         EXPECT_CONTAINS(str, "class: d");
     }
 
-    OK(getFromSocket("/dispatch movefocus    u"));
+    OK(getFromSocket("/dispatch movefocus u"));
 
     {
         auto str = getFromSocket("/activewindow");
