@@ -842,7 +842,6 @@ void CScrollingAlgorithm::moveTargetTo(SP<ITarget> t, Math::eDirection dir, bool
     if (!DATA)
         return;
 
-    const auto TAPE_DIR    = getDynamicDirection();
     const auto CURRENT_COL = DATA->column.lock();
     const auto current_idx = m_scrollingData->idx(CURRENT_COL);
 
