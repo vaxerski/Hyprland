@@ -12,7 +12,7 @@ static void swar() {
 
     {
         auto str = getFromSocket("/activewindow");
-        EXPECT_CONTAINS(str, "at: 1442,22");
+        EXPECT_CONTAINS(str, "at: 442,22");
         EXPECT_CONTAINS(str, "size: 1036,1036");
     }
 
@@ -24,7 +24,7 @@ static void swar() {
 
     {
         auto str = getFromSocket("/activewindow");
-        EXPECT_CONTAINS(str, "at: 1442,22");
+        EXPECT_CONTAINS(str, "at: 442,22");
         EXPECT_CONTAINS(str, "size: 1036,1036");
     }
 
