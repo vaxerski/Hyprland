@@ -3,7 +3,7 @@
 #include "../../hyprctlCompat.hpp"
 #include "tests.hpp"
 
-static int ret = 0;
+static int  ret = 0;
 
 static void swar() {
     OK(getFromSocket("/keyword layout:single_window_aspect_ratio 1 1"));
