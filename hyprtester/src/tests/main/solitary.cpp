@@ -18,9 +18,9 @@ using namespace Hyprutils::Memory;
 static bool test() {
     NLog::log("{}Testing solitary clients", Colors::GREEN);
 
-    OK(getFromSocket("/keyword general:allow_tearing false"));
-    OK(getFromSocket("/keyword render:direct_scanout 0"));
-    OK(getFromSocket("/keyword cursor:no_hardware_cursors 1"));
+    OK(Tests::evalLua("hl.config({ [\"general.allow_tearing\"] = false })"));
+    OK(Tests::evalLua("hl.config({ [\"render.direct_scanout\"] = 0 })"));
+    OK(Tests::evalLua("hl.config({ [\"cursor.no_hardware_cursors\"] = true })"));
     NLog::log("{}Expecting blocked solitary/DS/tearing", Colors::YELLOW);
     {
         auto str = getFromSocket("/monitors");

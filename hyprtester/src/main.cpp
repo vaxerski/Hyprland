@@ -59,12 +59,12 @@ static bool launchHyprland(std::string configPath, std::string binaryPath) {
 
     if (configPath == "") {
         std::error_code ec;
-        if (!std::filesystem::exists(cwd + "/test.conf", ec) || ec) {
+        if (!std::filesystem::exists(cwd + "/test.lua", ec) || ec) {
             NLog::log("{}No test config", Colors::RED);
             return false;
         }
 
-        configPath = cwd + "/test.conf";
+        configPath = cwd + "/test.lua";
     }
 
     NLog::log("{}Launching Hyprland", Colors::YELLOW);
