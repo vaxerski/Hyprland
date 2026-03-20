@@ -1,0 +1,912 @@
+#include "ConfigManager.hpp"
+#include "LuaBindings.hpp"
+#include "DefaultConfig.hpp"
+
+#include <climits>
+#include <algorithm>
+#include <cctype>
+#include <functional>
+#include <fstream>
+#include <hyprutils/string/String.hpp>
+
+#include "types/LuaConfigUtils.hpp"
+
+#include "../values/ConfigValues.hpp"
+
+#include "../supplementary/jeremy/Jeremy.hpp"
+#include "../shared/workspace/WorkspaceRuleManager.hpp"
+#include "../shared/monitor/MonitorRuleManager.hpp"
+#include "../shared/animation/AnimationTree.hpp"
+#include "../shared/inotify/ConfigWatcher.hpp"
+
+#include "../../desktop/rule/Engine.hpp"
+#include "../../helpers/MiscFunctions.hpp"
+
+#include "../../event/EventBus.hpp"
+#include "../../Compositor.hpp"
+#include "../../managers/input/InputManager.hpp"
+#include "../../managers/KeybindManager.hpp"
+#include "../../helpers/Monitor.hpp"
+#include "../../layout/space/Space.hpp"
+#include "../../layout/supplementary/WorkspaceAlgoMatcher.hpp"
+#include "../../render/Renderer.hpp"
+#include "../../hyprerror/HyprError.hpp"
+#include "../../xwayland/XWayland.hpp"
+#include "../../plugins/PluginSystem.hpp"
+#include "../../managers/EventManager.hpp"
+#include "../../managers/eventLoop/EventLoopManager.hpp"
+#include "../../managers/input/trackpad/TrackpadGestures.hpp"
+#include "../../notification/NotificationOverlay.hpp"
+#include "../../render/decorations/CHyprGroupBarDecoration.hpp"
+
+using namespace Config;
+using namespace Config::Lua;
+using namespace Hyprutils::String;
+
+namespace {
+    bool isValidLuaIdentifier(const std::string& value) {
+        if (value.empty())
+            return false;
+
+        const auto FIRST = static_cast<unsigned char>(value[0]);
+        if (!(std::isalpha(FIRST) || value[0] == '_'))
+            return false;
+
+        for (const auto c : value) {
+            const auto CH = static_cast<unsigned char>(c);
+            if (!(std::isalnum(CH) || c == '_'))
+                return false;
+        }
+
+        return true;
+    }
+
+    int pluginLuaFunctionDispatcher(lua_State* L) {
+        auto* mgr = CConfigManager::fromLuaState(L);
+        if (!mgr)
+            return luaL_error(L, "hl.plugin: internal error: config manager unavailable");
+
+        if (!lua_isinteger(L, lua_upvalueindex(1)))
+            return luaL_error(L, "hl.plugin: internal error: invalid callback id");
+
+        const auto id = static_cast<uint64_t>(lua_tointeger(L, lua_upvalueindex(1)));
+        return mgr->invokePluginLuaFunctionByID(id, L);
+    }
+}
+
+CConfigManager::CConfigManager() : m_mainConfigPath(Supplementary::Jeremy::getMainConfigPath()->path) {
+    ;
+}
+
+CConfigManager* CConfigManager::fromLuaState(lua_State* L) {
+    if (!L)
+        return nullptr;
+
+    lua_getfield(L, LUA_REGISTRYINDEX, "hl_lua_manager");
+    auto* mgr = static_cast<CConfigManager*>(lua_touserdata(L, -1));
+    lua_pop(L, 1);
+    return mgr;
+}
+
+void CConfigManager::watchdogHook(lua_State* L, lua_Debug* /*ar*/) {
+    auto* mgr = fromLuaState(L);
+    if (!mgr || !mgr->m_watchdogActive)
+        return;
+
+    if (std::chrono::steady_clock::now() <= mgr->m_watchdogDeadline)
+        return;
+
+    const auto& context = mgr->m_watchdogContext;
+    if (context.empty())
+        luaL_error(L, "[Lua] execution timed out");
+
+    luaL_error(L, "[Lua] execution timed out in %s", context.c_str());
+}
+
+int CConfigManager::guardedPCall(int nargs, int nresults, int errfunc, int timeoutMs, std::string_view context) {
+    if (!m_lua)
+        return LUA_ERRERR;
+
+    const auto                                  prevHook  = lua_gethook(m_lua);
+    const int                                   prevMask  = lua_gethookmask(m_lua);
+    const int                                   prevCount = lua_gethookcount(m_lua);
+
+    const bool                                  prevWatchdogActive   = m_watchdogActive;
+    const std::chrono::steady_clock::time_point prevWatchdogDeadline = m_watchdogDeadline;
+    const std::string                           prevWatchdogContext  = m_watchdogContext;
+
+    m_watchdogActive   = timeoutMs > 0;
+    m_watchdogDeadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(std::max(timeoutMs, 1));
+    m_watchdogContext  = context;
+
+    lua_sethook(m_lua, &CConfigManager::watchdogHook, LUA_MASKCOUNT, LUA_WATCHDOG_INSTRUCTION_INTERVAL);
+    const int result = lua_pcall(m_lua, nargs, nresults, errfunc);
+
+    lua_sethook(m_lua, prevHook, prevMask, prevCount);
+    m_watchdogActive   = prevWatchdogActive;
+    m_watchdogDeadline = prevWatchdogDeadline;
+    m_watchdogContext  = prevWatchdogContext;
+
+    return result;
+}
+
+eConfigManagerType CConfigManager::type() {
+    return CONFIG_LUA;
+}
+
+void CConfigManager::registerValue(const char* name, ILuaConfigValue* val) {
+    m_configValues.emplace(name, UP<ILuaConfigValue>(val));
+}
+
+void CConfigManager::cleanTimers() {
+    for (auto& t : m_luaTimers) {
+        t.timer->cancel();
+        g_pEventLoopManager->removeTimer(t.timer);
+
+        if (m_lua && t.luaRef != LUA_NOREF) {
+            luaL_unref(m_lua, LUA_REGISTRYINDEX, t.luaRef);
+            t.luaRef = LUA_NOREF;
+        }
+    }
+    m_luaTimers.clear();
+}
+
+void CConfigManager::reinitLuaState() {
+    // Destroy the event handler first so its luaL_unref calls happen while m_lua is still valid.
+    m_eventHandler.reset();
+
+    cleanTimers();
+
+    if (m_lua) {
+        lua_close(m_lua);
+        m_lua = nullptr;
+    }
+
+    m_lua = luaL_newstate();
+    luaL_openlibs(m_lua);
+
+    lua_getglobal(m_lua, "debug");
+    if (lua_istable(m_lua, -1)) {
+        lua_pushnil(m_lua);
+        lua_setfield(m_lua, -2, "sethook");
+        lua_pushnil(m_lua);
+        lua_setfield(m_lua, -2, "gethook");
+    }
+    lua_pop(m_lua, 1);
+
+    lua_pushlightuserdata(m_lua, this);
+    lua_setfield(m_lua, LUA_REGISTRYINDEX, "hl_lua_manager");
+
+    std::filesystem::path configDir = std::filesystem::path(m_mainConfigPath).parent_path();
+    const std::string     luaPath   = (configDir / "?.lua").string() + ";" + (configDir / "?/init.lua").string();
+    lua_getglobal(m_lua, "package");
+    lua_pushstring(m_lua, luaPath.c_str());
+    lua_setfield(m_lua, -2, "path");
+    lua_pop(m_lua, 1);
+
+    Bindings::registerBindings(m_lua, this);
+
+    m_eventHandler = makeUnique<CLuaEventHandler>(m_lua);
+
+    // Hook package.searchers[2] (the Lua file searcher) to track require()'d paths.
+    lua_getglobal(m_lua, "package");
+    lua_getfield(m_lua, -1, "searchers");
+    lua_rawgeti(m_lua, -1, 2); // original file searcher
+    lua_pushlightuserdata(m_lua, this);
+    lua_pushcclosure(
+        m_lua,
+        [](lua_State* L) -> int {
+            // upvalue 1: original searcher, upvalue 2: CConfigManager*
+            lua_pushvalue(L, lua_upvalueindex(1));
+            lua_pushvalue(L, 1); // module name
+            lua_call(L, 1, 2);   // -> loader?, filename?
+            if (lua_isfunction(L, -2) && lua_isstring(L, -1)) {
+                auto* self = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(2)));
+                self->m_configPaths.emplace_back(lua_tostring(L, -1));
+            }
+            return 2;
+        },
+        2);
+    lua_rawseti(m_lua, -2, 2); // replace package.searchers[2]
+    lua_pop(m_lua, 2);         // pop searchers, package
+}
+
+void CConfigManager::init() {
+    reinitLuaState();
+
+    for (const auto& v : Values::CONFIG_VALUES) {
+        m_configValues.emplace(luaConfigValueName(v->name()), fromGenericValue(v));
+    }
+
+    m_configValues["autogenerated"] = fromGenericValue(makeShared<Values::CIntValue>("autogenerated", "whether the config is autogenerated or not", 0));
+
+    Config::watcher()->setOnChange([this](const CConfigWatcher::SConfigWatchEvent& e) {
+        Log::logger->log(Log::DEBUG, "[lua] file {} modified, reloading", e.file);
+        reload();
+    });
+
+    reload();
+}
+
+void CConfigManager::reload() {
+    Event::bus()->m_events.config.preReload.emit();
+
+    m_mainConfigPath = Supplementary::Jeremy::getMainConfigPath()->path;
+
+    // reset tracked paths; the searcher hook will re-populate them as require() runs
+    m_configPaths.clear();
+    m_configPaths.emplace_back(m_mainConfigPath);
+
+    // clear package.loaded for user modules so require() re-executes them and
+    // the searcher hook can re-track their paths.
+    lua_getglobal(m_lua, "package");
+    lua_getfield(m_lua, -1, "loaded");
+    static constexpr std::string_view STDLIB[] = {"_G", "coroutine", "debug", "io", "math", "os", "package", "string", "table", "utf8", "bit32", "jit"};
+    lua_pushnil(m_lua);
+    while (lua_next(m_lua, -2)) {
+        lua_pop(m_lua, 1); // pop value, keep key
+        if (lua_isstring(m_lua, -1)) {
+            std::string_view mod  = lua_tostring(m_lua, -1);
+            bool             skip = false;
+            for (const auto& s : STDLIB) {
+                if (mod == s) {
+                    skip = true;
+                    break;
+                }
+            }
+            if (!skip) {
+                lua_pushvalue(m_lua, -1); // dup key
+                lua_pushnil(m_lua);
+                lua_settable(m_lua, -4); // package.loaded[key] = nil
+            }
+        }
+    }
+    lua_pop(m_lua, 2); // pop loaded, package
+
+    // phase 1: check syntax before clearing any state, so a broken syntax
+    // doesn't entirely fucking nuke the config and leave the user
+    // with no binds.
+    //
+    // this won't help if they are launching hyprland,
+    // which is a FIXME: add some recovery binds...
+    if (luaL_loadfile(m_lua, m_mainConfigPath.c_str()) != LUA_OK) {
+        m_errors.clear();
+        addError(lua_tostring(m_lua, -1));
+        lua_pop(m_lua, 1);
+        m_lastConfigVerificationWasSuccessful = false;
+        postConfigReload();
+        return;
+    }
+
+    // phase 2: syntax is valid, reset and load.
+    Config::animationTree()->reset();
+    Config::workspaceRuleMgr()->clear();
+    Config::monitorRuleMgr()->clear();
+    Desktop::Rule::ruleEngine()->clearAllRules();
+    g_pTrackpadGestures->clearGestures();
+    cleanTimers();
+    m_luaWindowRules.clear();
+    m_luaLayerRules.clear();
+    m_errors.clear();
+    m_deviceConfigs.clear();
+    m_registeredPlugins.clear();
+
+    if (g_pKeybindManager) {
+        for (const auto& kb : g_pKeybindManager->m_keybinds) {
+            if (kb->handler == "__lua")
+                luaL_unref(m_lua, LUA_REGISTRYINDEX, std::stoi(kb->arg));
+        }
+        g_pKeybindManager->clearKeybinds();
+    }
+
+    for (const auto& v : m_configValues) {
+        v.second->reset();
+    }
+
+    lua_pushcfunction(m_lua, [](lua_State* L) -> int {
+        luaL_traceback(L, L, lua_tostring(L, 1), 1);
+        return 1;
+    });
+    lua_insert(m_lua, 1);
+
+    if (guardedPCall(0, 0, 1, LUA_TIMEOUT_CONFIG_RELOAD_MS, "config reload") != LUA_OK) {
+        addError(lua_tostring(m_lua, -1));
+        lua_pop(m_lua, 1);
+        m_lastConfigVerificationWasSuccessful = false;
+    } else
+        m_lastConfigVerificationWasSuccessful = m_errors.empty();
+
+    lua_remove(m_lua, 1);
+
+    // collect stale userdata after reload so HL.Notification __gc can
+    // promptly release pause leases from dropped references
+    lua_gc(m_lua, LUA_GCCOLLECT, 0);
+
+    postConfigReload();
+
+    m_isFirstLaunch = false;
+}
+
+void CConfigManager::postConfigReload() {
+
+    static auto PZOOMFACTOR     = CConfigValue<Config::FLOAT>("cursor.zoom_factor");
+    static auto PSUPPRESSERRORS = CConfigValue<Config::INTEGER>("debug.suppress_errors");
+    static auto PXWAYLAND       = CConfigValue<Config::INTEGER>("xwayland.enabled");
+    static auto PMANUALCRASH    = CConfigValue<Config::INTEGER>("debug.manual_crash");
+    static auto PENABLESTDOUT   = CConfigValue<Config::INTEGER>("debug.enable_stdout_logs");
+    static auto PAUTOGENERATED  = CConfigValue<Config::INTEGER>("autogenerated");
+
+    Config::watcher()->update();
+
+    for (auto const& w : g_pCompositor->m_windows) {
+        w->uncacheWindowDecos();
+    }
+
+    for (auto const& m : g_pCompositor->m_monitors) {
+        *(m->m_cursorZoom) = *PZOOMFACTOR;
+        if (m->m_activeWorkspace)
+            m->m_activeWorkspace->m_space->recalculate();
+    }
+
+    // Update the keyboard layout to the cfg'd one if this is not the first launch
+    if (!m_isFirstLaunch) {
+        g_pInputManager->setKeyboardLayout();
+        g_pInputManager->setPointerConfigs();
+        g_pInputManager->setTouchDeviceConfigs();
+        g_pInputManager->setTabletConfigs();
+
+        g_pHyprRenderer->m_reloadScreenShader = true;
+    }
+
+    // parseError will be displayed next frame
+    if (g_pHyprError) {
+        if (!m_errors.empty() && !*PSUPPRESSERRORS) {
+            std::string errorStr = "Your config has errors:\n";
+            for (const auto& e : m_errors) {
+                errorStr += e + "\n";
+
+                if (std::ranges::count(errorStr, '\n') > 10) {
+                    errorStr += "... more";
+                    break;
+                }
+            }
+
+            if (!errorStr.empty() && errorStr.back() == '\n')
+                errorStr.pop_back();
+
+            g_pHyprError->queueCreate(errorStr, CHyprColor(1.0, 50.0 / 255.0, 50.0 / 255.0, 1.0));
+        } else if (*PAUTOGENERATED)
+            g_pHyprError->queueCreate(
+                "Warning: You're using an autogenerated config! Edit the config file to get rid of this message. (config file: " + getMainConfigPath() +
+                    " )\nSUPER+Q -> kitty (if it doesn't launch, make sure it's installed or choose a different terminal in the config)\nSUPER+M -> exit Hyprland",
+                CHyprColor(1.0, 1.0, 70.0 / 255.0, 1.0));
+        else
+            g_pHyprError->destroy();
+    }
+
+    // Set the modes for all monitors as we configured them
+    // not on first launch because monitors might not exist yet
+    // and they'll be taken care of in the newMonitor event
+    if (!m_isFirstLaunch) {
+        // check
+        Config::monitorRuleMgr()->scheduleReload();
+        Config::monitorRuleMgr()->ensureMonitorStatus();
+        Config::monitorRuleMgr()->ensureVRR();
+    }
+
+#ifndef NO_XWAYLAND
+    g_pCompositor->m_wantsXwayland = *PXWAYLAND;
+    // enable/disable xwayland usage
+    if (!m_isFirstLaunch &&
+        g_pXWayland /* XWayland has to be initialized by CCompositor::initManagers for this to make sense, and it doesn't have to be (e.g. very early plugin load) */) {
+        bool prevEnabledXwayland = g_pXWayland->enabled();
+        if (g_pCompositor->m_wantsXwayland != prevEnabledXwayland)
+            g_pXWayland = makeUnique<CXWayland>(g_pCompositor->m_wantsXwayland);
+    } else
+        g_pCompositor->m_wantsXwayland = *PXWAYLAND;
+#endif
+
+    if (!m_isFirstLaunch && !g_pCompositor->m_unsafeState)
+        refreshGroupBarGradients();
+
+    for (auto const& w : g_pCompositor->getWorkspaces()) {
+        if (w->inert())
+            continue;
+        w->updateWindows();
+        w->updateWindowData();
+    }
+
+    g_pCompositor->updateAllWindowsAnimatedDecorationValues();
+
+    if (*PMANUALCRASH && !m_manualCrashInitiated) {
+        m_manualCrashInitiated = true;
+        Notification::overlay()->addNotification("Manual crash has been set up. Set debug.manual_crash back to 0 in order to crash the compositor.", CHyprColor(0), 5000,
+                                                 ICON_INFO);
+    } else if (m_manualCrashInitiated && !*PMANUALCRASH) {
+        // cowabunga it is
+        g_pHyprRenderer->initiateManualCrash();
+    }
+
+    auto disableStdout = !*PENABLESTDOUT;
+    if (disableStdout && m_isFirstLaunch)
+        Log::logger->log(Log::DEBUG, "Disabling stdout logs! Check the log for further logs.");
+
+    for (auto const& m : g_pCompositor->m_monitors) {
+        // mark blur dirty
+        m->m_blurFBDirty = true;
+
+        g_pCompositor->scheduleFrameForMonitor(m);
+
+        // Force the compositor to fully re-render all monitors
+        m->m_forceFullFrames = 2;
+
+        // also force mirrors, as the aspect ratio could've changed
+        for (auto const& mirror : m->m_mirrors)
+            mirror->m_forceFullFrames = 3;
+    }
+
+    handlePluginLoads();
+
+    if (!m_isFirstLaunch)
+        g_pCompositor->ensurePersistentWorkspacesPresent();
+
+    Layout::Supplementary::algoMatcher()->updateWorkspaceLayouts();
+
+    Event::bus()->m_events.config.reloaded.emit();
+    if (g_pEventManager)
+        g_pEventManager->postEvent(SHyprIPCEvent{"configreloaded", ""});
+}
+
+void CConfigManager::addError(std::string&& str) {
+    m_errors.emplace_back(std::move(str));
+}
+
+std::optional<std::string> CConfigManager::eval(const std::string& code) {
+    if (!m_lua)
+        return "lua state not initialized";
+
+    if (luaL_loadstring(m_lua, code.c_str()) != LUA_OK) {
+        std::string err = lua_tostring(m_lua, -1);
+        lua_pop(m_lua, 1);
+        return err;
+    }
+
+    if (guardedPCall(0, 0, 0, LUA_TIMEOUT_EVAL_MS, "hyprctl eval") != LUA_OK) {
+        std::string err = lua_tostring(m_lua, -1);
+        lua_pop(m_lua, 1);
+        return err;
+    }
+
+    return std::nullopt;
+}
+
+std::string CConfigManager::verify() {
+    if (m_errors.empty())
+        return "config ok";
+
+    std::string fullStr = "";
+    for (const auto& e : m_errors) {
+        fullStr += e;
+        fullStr += "\n";
+    }
+
+    fullStr.pop_back();
+    return fullStr;
+}
+
+static std::string normalizeDeviceName(const std::string& dev) {
+    auto copy = dev;
+    std::ranges::replace(copy, ' ', '-');
+    return copy;
+}
+
+ILuaConfigValue* CConfigManager::findDeviceValue(const std::string& dev, const std::string& field) {
+    const auto devIt = m_deviceConfigs.find(dev);
+    if (devIt == m_deviceConfigs.end())
+        return nullptr;
+    const auto valIt = devIt->second.values.find(field);
+    return valIt != devIt->second.values.end() ? valIt->second.get() : nullptr;
+}
+
+int CConfigManager::getDeviceInt(const std::string& dev, const std::string& field, const std::string& fb) {
+    std::string fallback = luaConfigValueName(fb);
+    if (auto* v = findDeviceValue(normalizeDeviceName(dev), field))
+        return (int)*static_cast<const Config::INTEGER*>(v->data());
+    if (!fallback.empty() && m_configValues.contains(fallback))
+        return (int)*static_cast<const Config::INTEGER*>(m_configValues.at(fallback)->data());
+    return 0;
+}
+
+float CConfigManager::getDeviceFloat(const std::string& dev, const std::string& field, const std::string& fb) {
+    std::string fallback = luaConfigValueName(fb);
+    if (auto* v = findDeviceValue(normalizeDeviceName(dev), field))
+        return *static_cast<const Config::FLOAT*>(v->data());
+    if (!fallback.empty() && m_configValues.contains(fallback))
+        return *static_cast<const Config::FLOAT*>(m_configValues.at(fallback)->data());
+    return 0.F;
+}
+
+Vector2D CConfigManager::getDeviceVec(const std::string& dev, const std::string& field, const std::string& fb) {
+    std::string fallback = luaConfigValueName(fb);
+    auto        toVec    = [](const Config::VEC2& v) -> Vector2D { return {v.x, v.y}; };
+    if (auto* val = findDeviceValue(normalizeDeviceName(dev), field))
+        return toVec(*static_cast<const Config::VEC2*>(val->data()));
+    if (!fallback.empty() && m_configValues.contains(fallback))
+        return toVec(*static_cast<const Config::VEC2*>(m_configValues.at(fallback)->data()));
+    return {0, 0};
+}
+
+std::string CConfigManager::getDeviceString(const std::string& dev, const std::string& field, const std::string& fb) {
+    std::string fallback = luaConfigValueName(fb);
+    auto        clean    = [](const Config::STRING& s) -> std::string { return s == STRVAL_EMPTY ? "" : s; };
+    if (auto* v = findDeviceValue(normalizeDeviceName(dev), field))
+        return clean(*static_cast<const Config::STRING*>(v->data()));
+    if (!fallback.empty() && m_configValues.contains(fallback))
+        return clean(*static_cast<const Config::STRING*>(m_configValues.at(fallback)->data()));
+    return "";
+}
+
+bool CConfigManager::deviceConfigExplicitlySet(const std::string& dev, const std::string& field) {
+    return findDeviceValue(normalizeDeviceName(dev), field) != nullptr;
+}
+
+bool CConfigManager::deviceConfigExists(const std::string& dev) {
+    return m_deviceConfigs.contains(normalizeDeviceName(dev));
+}
+
+SConfigOptionReply CConfigManager::getConfigValue(const std::string& s) {
+
+    if (m_configValues.contains(s)) {
+
+        auto& cv = m_configValues[s];
+
+        m_configPtrMap[s] = cv->data();
+
+        return SConfigOptionReply{.dataptr = cc<void* const*>(&m_configPtrMap.at(s)), .type = cv->underlying(), .setByUser = cv->setByUser()};
+    }
+
+    // try replacing all . with : unless col.
+    std::string s2 = s;
+
+    for (size_t i = 0; i < s2.length(); ++i) {
+        if (s2[i] != ':')
+            continue;
+
+        if (i <= 3) {
+            s2[i] = '.';
+            continue;
+        }
+
+        if (s2[i - 1] == 'l' && s2[i - 2] == 'o' && s2[i - 3] == 'c')
+            continue;
+
+        s2[i] = '.';
+    }
+
+    if (!m_configValues.contains(s2))
+        return SConfigOptionReply{.dataptr = nullptr};
+
+    auto& cv = m_configValues[s2];
+
+    m_configPtrMap[s2] = cv->data();
+
+    return SConfigOptionReply{.dataptr = cc<void* const*>(&m_configPtrMap.at(s2)), .type = cv->underlying(), .setByUser = cv->setByUser()};
+}
+
+std::string CConfigManager::getMainConfigPath() {
+    return m_mainConfigPath;
+}
+
+std::string CConfigManager::getErrors() {
+    std::string errStr;
+    for (const auto& e : m_errors) {
+        errStr += e + "\n";
+    }
+
+    if (!errStr.empty())
+        errStr.pop_back();
+
+    return errStr;
+}
+
+std::string CConfigManager::getConfigString() {
+    return "FIXME:";
+}
+
+std::string CConfigManager::currentConfigPath() {
+    return m_mainConfigPath;
+}
+
+const std::vector<std::string>& CConfigManager::getConfigPaths() {
+    return m_configPaths;
+}
+
+std::expected<void, std::string> CConfigManager::generateDefaultConfig(const std::filesystem::path& path, bool safeMode) {
+    std::string parentPath = std::filesystem::path(path).parent_path();
+
+    if (!parentPath.empty()) {
+        std::error_code ec;
+        bool            created = std::filesystem::create_directories(parentPath, ec);
+        if (ec) {
+            Log::logger->log(Log::ERR, "Couldn't create config home directory ({}): {}", ec.message(), parentPath);
+            return std::unexpected("Config could not be generated.");
+        }
+        if (created)
+            Log::logger->log(Log::WARN, "Creating config home directory");
+    }
+
+    Log::logger->log(Log::WARN, "No config file found; attempting to generate.");
+    std::ofstream ofs;
+    ofs.open(path, std::ios::trunc);
+
+    if (!ofs.good())
+        return std::unexpected("Config could not be generated.");
+
+    if (!safeMode) {
+        ofs << AUTOGENERATED_PREFIX;
+        ofs << EXAMPLE_CONFIG;
+    } else {
+        std::string n = std::string{EXAMPLE_CONFIG};
+        replaceInString(n, "\nlocal menu        = \"hyprlauncher\"\n", "\nlocal menu        = \"hyprland-run\"\n");
+        ofs << n;
+    }
+
+    ofs.close();
+
+    if (ofs.fail())
+        return std::unexpected("Config could not be generated.");
+
+    return {};
+}
+
+void CConfigManager::handlePluginLoads() {
+    if (!g_pPluginSystem)
+        return;
+
+    bool pluginsChanged = false;
+    g_pPluginSystem->updateConfigPlugins(m_registeredPlugins, pluginsChanged);
+
+    if (pluginsChanged) {
+        g_pHyprError->destroy();
+        reload();
+    }
+}
+
+bool CConfigManager::configVerifPassed() {
+    return m_lastConfigVerificationWasSuccessful;
+}
+
+std::string CConfigManager::luaConfigValueName(const std::string& s) {
+    std::string cpy = s;
+    std::ranges::replace(cpy, ':', '.');
+    return cpy;
+}
+
+bool CConfigManager::isFirstLaunch() const {
+    return m_isFirstLaunch;
+}
+
+std::expected<void, std::string> CConfigManager::registerPluginValue(void* handle, SP<Config::Values::IValue> value) {
+
+    const auto NAME = luaConfigValueName(value->name());
+
+    if (m_configValues.contains(NAME))
+        return std::unexpected("name collision: already registered");
+
+    auto val = fromGenericValue(value);
+
+    if (!val)
+        return std::unexpected("unsupported value type");
+
+    m_configValues.emplace(NAME, std::move(val));
+
+    m_pluginValues[handle].emplace_back(NAME);
+
+    return {};
+}
+
+std::expected<void, std::string> CConfigManager::registerPluginLuaFunctionInState(uint64_t id, const std::string& nameSpace, const std::string& name) {
+    if (!m_lua)
+        return std::unexpected("lua state not initialized");
+
+    lua_getglobal(m_lua, "hl");
+    if (!lua_istable(m_lua, -1)) {
+        lua_pop(m_lua, 1);
+        return std::unexpected("missing global table 'hl'");
+    }
+
+    lua_getfield(m_lua, -1, "plugin");
+    if (!lua_istable(m_lua, -1)) {
+        lua_pop(m_lua, 2);
+        return std::unexpected("missing global table 'hl.plugin'");
+    }
+
+    const int pluginTableIdx = lua_gettop(m_lua);
+
+    lua_getfield(m_lua, pluginTableIdx, nameSpace.c_str());
+    if (lua_isnil(m_lua, -1)) {
+        lua_pop(m_lua, 1);
+        lua_newtable(m_lua);
+        lua_pushvalue(m_lua, -1);
+        lua_setfield(m_lua, pluginTableIdx, nameSpace.c_str());
+    } else if (!lua_istable(m_lua, -1)) {
+        lua_pop(m_lua, 3);
+        return std::unexpected(std::format("hl.plugin.{} already exists and is not a namespace table", nameSpace));
+    }
+
+    const int nameSpaceTableIdx = lua_gettop(m_lua);
+
+    lua_getfield(m_lua, nameSpaceTableIdx, name.c_str());
+    const bool exists = !lua_isnil(m_lua, -1);
+    lua_pop(m_lua, 1);
+
+    if (exists) {
+        lua_pop(m_lua, 3);
+        return std::unexpected(std::format("hl.plugin.{}.{} already exists", nameSpace, name));
+    }
+
+    lua_pushinteger(m_lua, static_cast<lua_Integer>(id));
+    lua_pushcclosure(m_lua, pluginLuaFunctionDispatcher, 1);
+    lua_setfield(m_lua, nameSpaceTableIdx, name.c_str());
+
+    lua_pop(m_lua, 3);
+    return {};
+}
+
+std::expected<void, std::string> CConfigManager::unregisterPluginLuaFunctionInState(const std::string& nameSpace, const std::string& name) {
+    if (!m_lua)
+        return std::unexpected("lua state not initialized");
+
+    lua_getglobal(m_lua, "hl");
+    if (!lua_istable(m_lua, -1)) {
+        lua_pop(m_lua, 1);
+        return {};
+    }
+
+    lua_getfield(m_lua, -1, "plugin");
+    if (!lua_istable(m_lua, -1)) {
+        lua_pop(m_lua, 2);
+        return {};
+    }
+
+    const int pluginTableIdx = lua_gettop(m_lua);
+
+    lua_getfield(m_lua, pluginTableIdx, nameSpace.c_str());
+    if (!lua_istable(m_lua, -1)) {
+        lua_pop(m_lua, 3);
+        return {};
+    }
+
+    const int nameSpaceTableIdx = lua_gettop(m_lua);
+
+    lua_pushnil(m_lua);
+    lua_setfield(m_lua, nameSpaceTableIdx, name.c_str());
+
+    bool isEmpty = true;
+    lua_pushnil(m_lua);
+    if (lua_next(m_lua, nameSpaceTableIdx) != 0) {
+        isEmpty = false;
+        lua_pop(m_lua, 2);
+    }
+
+    if (isEmpty) {
+        lua_pushnil(m_lua);
+        lua_setfield(m_lua, pluginTableIdx, nameSpace.c_str());
+    }
+
+    lua_pop(m_lua, 3);
+    return {};
+}
+
+void CConfigManager::erasePluginLuaFunction(uint64_t id) {
+    const auto REGIT = m_pluginLuaFunctionsByID.find(id);
+    if (REGIT == m_pluginLuaFunctionsByID.end())
+        return;
+
+    const auto& REG = REGIT->second;
+    const auto  KEY = REG.nameSpace + "." + REG.name;
+
+    auto        ownerIt = m_pluginLuaFunctionIDsByHandle.find(REG.handle);
+    if (ownerIt != m_pluginLuaFunctionIDsByHandle.end()) {
+        std::erase(ownerIt->second, id);
+        if (ownerIt->second.empty())
+            m_pluginLuaFunctionIDsByHandle.erase(ownerIt);
+    }
+
+    m_pluginLuaFunctionIDByPath.erase(KEY);
+    m_pluginLuaFunctionsByID.erase(REGIT);
+}
+
+int CConfigManager::invokePluginLuaFunctionByID(uint64_t id, lua_State* L) {
+    const auto REGIT = m_pluginLuaFunctionsByID.find(id);
+    if (REGIT == m_pluginLuaFunctionsByID.end())
+        return luaL_error(L, "hl.plugin: this function is no longer available (plugin unloaded)");
+
+    const auto FN = REGIT->second.fn;
+    if (!FN)
+        return luaL_error(L, "hl.plugin: this function is not callable");
+
+    return FN(L);
+}
+
+std::expected<void, std::string> CConfigManager::registerPluginLuaFunction(void* handle, const std::string& namespace_, const std::string& name, Config::PLUGIN_LUA_FN fn) {
+    if (!handle)
+        return std::unexpected("invalid handle");
+
+    if (!fn)
+        return std::unexpected("function pointer cannot be null");
+
+    if (!isValidLuaIdentifier(namespace_))
+        return std::unexpected("namespace must match [A-Za-z_][A-Za-z0-9_]*");
+
+    if (!isValidLuaIdentifier(name))
+        return std::unexpected("name must match [A-Za-z_][A-Za-z0-9_]*");
+
+    if (namespace_ == "load")
+        return std::unexpected("namespace 'load' is reserved");
+
+    const auto key = namespace_ + "." + name;
+    if (m_pluginLuaFunctionIDByPath.contains(key))
+        return std::unexpected("name collision: already registered");
+
+    const uint64_t id = m_nextPluginLuaFunctionID++;
+    if (const auto REGISTERED = registerPluginLuaFunctionInState(id, namespace_, name); !REGISTERED)
+        return REGISTERED;
+
+    m_pluginLuaFunctionsByID.emplace(id, SPluginLuaFunction{.id = id, .handle = handle, .nameSpace = namespace_, .name = name, .fn = fn});
+    m_pluginLuaFunctionIDByPath.emplace(key, id);
+    m_pluginLuaFunctionIDsByHandle[handle].emplace_back(id);
+
+    return {};
+}
+
+std::expected<void, std::string> CConfigManager::unregisterPluginLuaFunction(void* handle, const std::string& namespace_, const std::string& name) {
+    if (!handle)
+        return std::unexpected("invalid handle");
+
+    const auto key = namespace_ + "." + name;
+
+    const auto idIt = m_pluginLuaFunctionIDByPath.find(key);
+    if (idIt == m_pluginLuaFunctionIDByPath.end())
+        return std::unexpected("function not found");
+
+    const auto regIt = m_pluginLuaFunctionsByID.find(idIt->second);
+    if (regIt == m_pluginLuaFunctionsByID.end())
+        return std::unexpected("function registry mismatch");
+
+    if (regIt->second.handle != handle)
+        return std::unexpected("function belongs to a different plugin");
+
+    const auto removedFromState = unregisterPluginLuaFunctionInState(namespace_, name);
+    erasePluginLuaFunction(regIt->second.id);
+
+    if (!removedFromState)
+        return removedFromState;
+
+    return {};
+}
+
+void CConfigManager::onPluginUnload(void* handle) {
+    if (!handle)
+        return;
+
+    if (const auto it = m_pluginValues.find(handle); it != m_pluginValues.end()) {
+        for (const auto& name : it->second) {
+            m_configValues.erase(name);
+        }
+
+        m_pluginValues.erase(it);
+    }
+
+    if (const auto it = m_pluginLuaFunctionIDsByHandle.find(handle); it != m_pluginLuaFunctionIDsByHandle.end()) {
+        const auto ids = it->second;
+        for (const auto id : ids) {
+            const auto regIt = m_pluginLuaFunctionsByID.find(id);
+            if (regIt == m_pluginLuaFunctionsByID.end())
+                continue;
+
+            unregisterPluginLuaFunctionInState(regIt->second.nameSpace, regIt->second.name);
+            erasePluginLuaFunction(id);
+        }
+    }
+}
