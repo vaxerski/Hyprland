@@ -6,6 +6,7 @@
 
 #include "./shared/Types.hpp"
 #include "../helpers/memory/Memory.hpp"
+#include "../plugins/types/APIValue.hpp"
 
 namespace Config {
 
@@ -55,6 +56,8 @@ namespace Config {
         virtual std::expected<void, std::string> generateDefaultConfig(const std::filesystem::path&, bool safeMode = false) = 0;
 
         virtual void                             handlePluginLoads() = 0;
+
+        virtual std::expected<void, std::string> registerPluginValue(void* handle, SP<Plugin::IAPIValue> value) = 0;
     };
 
     bool                initConfigManager();

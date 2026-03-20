@@ -25,9 +25,10 @@ class CPlugin {
 
     std::vector<IHyprWindowDecoration*> m_registeredDecorations;
     //std::vector<std::pair<std::string, WP<HOOK_CALLBACK_FN>>> m_registeredCallbacks;
-    std::vector<std::string>         m_registeredDispatchers;
-    std::vector<WP<SHyprCtlCommand>> m_registeredHyprctlCommands;
-    std::vector<std::string>         m_registeredAlgos;
+    std::vector<std::string>           m_registeredDispatchers;
+    std::vector<WP<SHyprCtlCommand>>   m_registeredHyprctlCommands;
+    std::vector<std::string>           m_registeredAlgos;
+    std::vector<WP<Plugin::IAPIValue>> m_registeredApiValues;
 };
 
 class CPluginSystem {
