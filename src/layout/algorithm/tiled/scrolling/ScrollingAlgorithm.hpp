@@ -109,6 +109,8 @@ namespace Layout::Tiled {
         virtual void                             swapTargets(SP<ITarget> a, SP<ITarget> b);
         virtual void                             moveTargetInDirection(SP<ITarget> t, Math::eDirection dir, bool silent);
 
+        void                                     moveTape(float delta);
+
         CBox                                     usableArea();
 
         enum eInputMode : uint8_t {

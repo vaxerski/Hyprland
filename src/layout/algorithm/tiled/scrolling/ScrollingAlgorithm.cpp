@@ -858,6 +858,14 @@ void CScrollingAlgorithm::moveTargetInDirection(SP<ITarget> t, Math::eDirection 
     moveTargetTo(t, dir, silent);
 }
 
+void CScrollingAlgorithm::moveTape(float delta) {
+    if (delta == 0.F)
+        return;
+
+    m_scrollingData->controller->adjustOffset(-delta);
+    m_scrollingData->recalculate();
+}
+
 void CScrollingAlgorithm::moveTargetTo(SP<ITarget> t, Math::eDirection dir, bool silent) {
     static auto PMONITORFALLBACK = CConfigValue<Hyprlang::INT>("binds:window_direction_monitor_fallback");
 
