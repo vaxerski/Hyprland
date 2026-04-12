@@ -862,7 +862,16 @@ void CScrollingAlgorithm::moveTape(float delta) {
     if (delta == 0.F)
         return;
 
-    m_scrollingData->controller->adjustOffset(-delta);
+    static const auto PFSONONE = CConfigValue<Hyprlang::INT>("scrolling:fullscreen_on_one_column");
+
+    const auto        USABLE         = usableArea();
+    const bool        isPrimaryHoriz = m_scrollingData->controller->isPrimaryHorizontal();
+    const double      usablePrimary  = isPrimaryHoriz ? USABLE.w : USABLE.h;
+    const double      maxExtent      = m_scrollingData->controller->calculateMaxExtent(USABLE, *PFSONONE);
+    const double      lowerBound     = -usablePrimary;
+    const double      upperBound     = maxExtent;
+
+    m_scrollingData->controller->setOffset(std::clamp(m_scrollingData->controller->getOffset() - delta, lowerBound, upperBound));
     m_scrollingData->recalculate();
 }
 
@@ -1059,8 +1068,7 @@ std::expected<void, std::string> CScrollingAlgorithm::layoutMsg(const std::strin
         if (!PLUSMINUS.has_value())
             return std::unexpected("failed to parse offset");
 
-        m_scrollingData->controller->adjustOffset(-(*PLUSMINUS));
-        m_scrollingData->recalculate();
+        moveTape(*PLUSMINUS);
 
         const auto ATCENTER = m_scrollingData->atCenter();
 
