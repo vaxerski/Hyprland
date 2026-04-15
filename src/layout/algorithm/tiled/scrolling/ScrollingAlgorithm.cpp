@@ -871,8 +871,8 @@ void CScrollingAlgorithm::moveTape(float delta) {
     const bool        isPrimaryHoriz = m_scrollingData->controller->isPrimaryHorizontal();
     const double      usablePrimary  = isPrimaryHoriz ? USABLE.w : USABLE.h;
     const double      maxExtent      = m_scrollingData->controller->calculateMaxExtent(USABLE, *PFSONONE);
-    const double      lowerBound     = -usablePrimary;
-    const double      upperBound     = maxExtent;
+    const double      lowerBound     = 0.0;
+    const double      upperBound     = std::max(0.0, maxExtent - usablePrimary);
 
     m_scrollingData->controller->setOffset(std::clamp(m_scrollingData->controller->getOffset() - delta, lowerBound, upperBound));
     m_scrollingData->recalculate();
@@ -882,8 +882,14 @@ void CScrollingAlgorithm::moveTape(float delta) {
         SP<SColumnData> bestCol = nullptr;
         double minDistance = 1e9;
         const auto WORKAREA = m_parent->space()->workArea();
-        const double centerAbs = isPrimaryHoriz ? WORKAREA.x + WORKAREA.w / 2.0 : WORKAREA.y + WORKAREA.h / 2.0;
 
+        double focusAnchorRelative = 0.5;
+        if (upperBound > 0.0) {
+            double currentOffset = std::clamp(m_scrollingData->controller->getOffset(), lowerBound, upperBound);
+            focusAnchorRelative = (currentOffset - lowerBound) / (upperBound - lowerBound);
+        }
+
+        const double centerAbs = isPrimaryHoriz ? WORKAREA.x + WORKAREA.w * focusAnchorRelative : WORKAREA.y + WORKAREA.h * focusAnchorRelative;
         for (const auto& col : m_scrollingData->columns) {
             if (col->targetDatas.empty()) continue;
             const auto firstTargetData = col->targetDatas.front();
