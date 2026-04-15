@@ -885,8 +885,15 @@ void CScrollingAlgorithm::moveTape(float delta) {
 
         double          focusAnchorRelative = 0.5;
         if (upperBound > 0.0) {
-            double currentOffset = std::clamp(m_scrollingData->controller->getOffset(), lowerBound, upperBound);
-            focusAnchorRelative  = (currentOffset - lowerBound) / (upperBound - lowerBound);
+            double currentOffset     = std::clamp(m_scrollingData->controller->getOffset(), lowerBound, upperBound);
+            double theoreticalAnchor = (currentOffset - lowerBound) / (upperBound - lowerBound);
+
+            if (theoreticalAnchor < 0.5 && delta < 0.0)
+                focusAnchorRelative = 0.5;
+            else if (theoreticalAnchor > 0.5 && delta > 0.0)
+                focusAnchorRelative = 0.5;
+            else
+                focusAnchorRelative = theoreticalAnchor;
         }
 
         const double centerAbs = isPrimaryHoriz ? WORKAREA.x + WORKAREA.w * focusAnchorRelative : WORKAREA.y + WORKAREA.h * focusAnchorRelative;
