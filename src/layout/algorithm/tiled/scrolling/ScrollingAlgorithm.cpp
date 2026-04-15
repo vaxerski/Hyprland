@@ -905,11 +905,22 @@ void CScrollingAlgorithm::moveTape(float delta) {
             if (!target)
                 continue;
 
-            const auto   pos          = firstTargetData->layoutBox.pos();
-            const auto   size         = firstTargetData->layoutBox.size();
-            const double targetCenter = isPrimaryHoriz ? pos.x + size.x / 2.0 : pos.y + size.y / 2.0;
+            const auto pos  = firstTargetData->layoutBox.pos();
+            const auto size = firstTargetData->layoutBox.size();
 
-            double       dist = std::abs(targetCenter - centerAbs);
+            double     dist = 0.0;
+            if (isPrimaryHoriz) {
+                if (centerAbs < pos.x)
+                    dist = pos.x - centerAbs;
+                else if (centerAbs > pos.x + size.x)
+                    dist = centerAbs - (pos.x + size.x);
+            } else {
+                if (centerAbs < pos.y)
+                    dist = pos.y - centerAbs;
+                else if (centerAbs > pos.y + size.y)
+                    dist = centerAbs - (pos.y + size.y);
+            }
+
             if (dist < minDistance) {
                 minDistance = dist;
                 bestCol     = col;
