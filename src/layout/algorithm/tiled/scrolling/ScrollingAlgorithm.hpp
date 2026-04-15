@@ -145,6 +145,6 @@ namespace Layout::Tiled {
 
         friend struct SScrollingData;
 
-        bool                     m_bTapeScrolling = false;
+        bool m_tapeScrolling = false;
     };
 };

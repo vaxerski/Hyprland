@@ -274,13 +274,14 @@ void CScrollTapeController::snapStripToNearestEdge(size_t stripIndex, const CBox
         return;
     }
 
-    if (m_offset > lo && m_offset < hi) {
-        double distLo = std::abs(m_offset - lo);
-        double distHi = std::abs(m_offset - hi);
-        m_offset = (distLo < distHi) ? lo : hi;
-    } else {
+    if (m_offset <= lo || m_offset >= hi) {
         fitStrip(stripIndex, usableArea, fullscreenOnOne);
+        return;
     }
+
+    const double distLo = std::abs(m_offset - lo);
+    const double distHi = std::abs(m_offset - hi);
+    m_offset            = distLo < distHi ? lo : hi;
 }
 
 bool CScrollTapeController::isStripVisible(size_t stripIndex, const CBox& usableArea, bool fullscreenOnOne, bool full) const {

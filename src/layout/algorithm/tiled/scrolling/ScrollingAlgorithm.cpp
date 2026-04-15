@@ -549,7 +549,7 @@ CScrollingAlgorithm::~CScrollingAlgorithm() {
 }
 
 void CScrollingAlgorithm::focusOnInput(SP<ITarget> target, eInputMode input) {
-    if (m_bTapeScrolling)
+    if (m_tapeScrolling)
         return;
 
     static const auto PFOLLOW_FOCUS_MIN_PERC = CConfigValue<Hyprlang::FLOAT>("scrolling:follow_min_visible");
@@ -879,46 +879,48 @@ void CScrollingAlgorithm::moveTape(float delta) {
 
     static const auto PSCROLLMOVE_MOVE_FOCUS = CConfigValue<Hyprlang::INT>("scrolling:scrollmove_move_focus");
     if (*PSCROLLMOVE_MOVE_FOCUS) {
-        SP<SColumnData> bestCol = nullptr;
-        double minDistance = 1e9;
-        const auto WORKAREA = m_parent->space()->workArea();
+        SP<SColumnData> bestCol     = nullptr;
+        double          minDistance = 1e9;
+        const auto      WORKAREA    = m_parent->space()->workArea();
 
-        double focusAnchorRelative = 0.5;
+        double          focusAnchorRelative = 0.5;
         if (upperBound > 0.0) {
             double currentOffset = std::clamp(m_scrollingData->controller->getOffset(), lowerBound, upperBound);
-            focusAnchorRelative = (currentOffset - lowerBound) / (upperBound - lowerBound);
+            focusAnchorRelative  = (currentOffset - lowerBound) / (upperBound - lowerBound);
         }
 
         const double centerAbs = isPrimaryHoriz ? WORKAREA.x + WORKAREA.w * focusAnchorRelative : WORKAREA.y + WORKAREA.h * focusAnchorRelative;
         for (const auto& col : m_scrollingData->columns) {
-            if (col->targetDatas.empty()) continue;
+            if (col->targetDatas.empty())
+                continue;
             const auto firstTargetData = col->targetDatas.front();
-            const auto target = firstTargetData->target.lock();
-            if (!target) continue;
-            
-            const auto pos = firstTargetData->layoutBox.pos();
-            const auto size = firstTargetData->layoutBox.size();
+            const auto target          = firstTargetData->target.lock();
+            if (!target)
+                continue;
+
+            const auto   pos          = firstTargetData->layoutBox.pos();
+            const auto   size         = firstTargetData->layoutBox.size();
             const double targetCenter = isPrimaryHoriz ? pos.x + size.x / 2.0 : pos.y + size.y / 2.0;
 
-            double dist = std::abs(targetCenter - centerAbs);
+            double       dist = std::abs(targetCenter - centerAbs);
             if (dist < minDistance) {
                 minDistance = dist;
-                bestCol = col;
+                bestCol     = col;
             }
         }
 
         if (bestCol) {
             auto currentWindow = Desktop::focusState()->window();
-            auto targetData = bestCol->lastFocusedTarget.lock();
+            auto targetData    = bestCol->lastFocusedTarget.lock();
             if (!targetData && !bestCol->targetDatas.empty())
                 targetData = bestCol->targetDatas.front();
 
             if (targetData) {
                 auto target = targetData->target.lock();
                 if (target && target->window() != currentWindow) {
-                    m_bTapeScrolling = true;
+                    m_tapeScrolling = true;
                     Desktop::focusState()->fullWindowFocus(target->window(), Desktop::FOCUS_REASON_OTHER);
-                    m_bTapeScrolling = false;
+                    m_tapeScrolling = false;
                 }
             }
         }
@@ -927,15 +929,19 @@ void CScrollingAlgorithm::moveTape(float delta) {
 
 void CScrollingAlgorithm::commitScrollMoveSnap() {
     auto currentWindow = Desktop::focusState()->window();
-    if (!currentWindow) return;
+    if (!currentWindow)
+        return;
+
     auto target = currentWindow->layoutTarget();
-    if (!target) return;
+    if (!target)
+        return;
 
     const auto TARGETDATA = dataFor(target);
-    if (!TARGETDATA) return;
+    if (!TARGETDATA)
+        return;
 
     static const auto PFITMETHOD = CConfigValue<Hyprlang::INT>("scrolling:focus_fit_method");
-    static const auto PFSONONE = CConfigValue<Hyprlang::INT>("scrolling:fullscreen_on_one_column");
+    static const auto PFSONONE   = CConfigValue<Hyprlang::INT>("scrolling:fullscreen_on_one_column");
 
     if (*PFITMETHOD == 1) {
         const auto c = TARGETDATA->column.lock();
@@ -946,9 +952,9 @@ void CScrollingAlgorithm::commitScrollMoveSnap() {
                 m_scrollingData->controller->snapStripToNearestEdge(colIdx, USABLE, *PFSONONE);
             }
         }
-    } else {
+    } else
         m_scrollingData->centerCol(TARGETDATA->column.lock());
-    }
+
     m_scrollingData->recalculate();
 }
 
