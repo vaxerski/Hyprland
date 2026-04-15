@@ -549,6 +549,9 @@ CScrollingAlgorithm::~CScrollingAlgorithm() {
 }
 
 void CScrollingAlgorithm::focusOnInput(SP<ITarget> target, eInputMode input) {
+    if (m_bTapeScrolling)
+        return;
+
     static const auto PFOLLOW_FOCUS_MIN_PERC = CConfigValue<Hyprlang::FLOAT>("scrolling:follow_min_visible");
 
     if (!target || target->space() != m_parent->space())
@@ -873,6 +876,55 @@ void CScrollingAlgorithm::moveTape(float delta) {
 
     m_scrollingData->controller->setOffset(std::clamp(m_scrollingData->controller->getOffset() - delta, lowerBound, upperBound));
     m_scrollingData->recalculate();
+
+    static const auto PSCROLLMOVE_MOVE_FOCUS = CConfigValue<Hyprlang::INT>("scrolling:scrollmove_move_focus");
+    if (*PSCROLLMOVE_MOVE_FOCUS) {
+        SP<SColumnData> bestCol = nullptr;
+        double minDistance = 1e9;
+        const auto WORKAREA = m_parent->space()->workArea();
+        const double centerAbs = isPrimaryHoriz ? WORKAREA.x + WORKAREA.w / 2.0 : WORKAREA.y + WORKAREA.h / 2.0;
+
+        for (const auto& col : m_scrollingData->columns) {
+            if (col->targetDatas.empty()) continue;
+            const auto firstTargetData = col->targetDatas.front();
+            const auto target = firstTargetData->target.lock();
+            if (!target) continue;
+            
+            const auto pos = firstTargetData->layoutBox.pos();
+            const auto size = firstTargetData->layoutBox.size();
+            const double targetCenter = isPrimaryHoriz ? pos.x + size.x / 2.0 : pos.y + size.y / 2.0;
+
+            double dist = std::abs(targetCenter - centerAbs);
+            if (dist < minDistance) {
+                minDistance = dist;
+                bestCol = col;
+            }
+        }
+
+        if (bestCol) {
+            auto currentWindow = Desktop::focusState()->window();
+            auto targetData = bestCol->lastFocusedTarget.lock();
+            if (!targetData && !bestCol->targetDatas.empty())
+                targetData = bestCol->targetDatas.front();
+
+            if (targetData) {
+                auto target = targetData->target.lock();
+                if (target && target->window() != currentWindow) {
+                    m_bTapeScrolling = true;
+                    Desktop::focusState()->fullWindowFocus(target->window(), Desktop::FOCUS_REASON_OTHER);
+                    m_bTapeScrolling = false;
+                }
+            }
+        }
+    }
+}
+
+void CScrollingAlgorithm::commitScrollMoveSnap() {
+    auto currentWindow = Desktop::focusState()->window();
+    if (!currentWindow) return;
+    auto target = currentWindow->layoutTarget();
+    if (target)
+        Log::logger->log(Log::ERR, "SNAP EXECUTED!"); focusOnInput(target, INPUT_MODE_KB);
 }
 
 void CScrollingAlgorithm::moveTargetTo(SP<ITarget> t, Math::eDirection dir, bool silent) {

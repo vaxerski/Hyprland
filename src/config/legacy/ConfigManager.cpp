@@ -680,6 +680,8 @@ CConfigManager::CConfigManager() {
     registerConfigVar("scrolling:direction", Hyprlang::STRING{"right"});
     registerConfigVar("scrolling:wrap_focus", Hyprlang::INT{1});
     registerConfigVar("scrolling:wrap_swapcol", Hyprlang::INT{1});
+    registerConfigVar("scrolling:scrollmove_move_focus", Hyprlang::INT{1});
+    registerConfigVar("scrolling:scrollmove_snap_on_release", Hyprlang::INT{1});
 
     registerConfigVar("animations:enabled", Hyprlang::INT{1});
     registerConfigVar("animations:workspace_wraparound", Hyprlang::INT{0});
