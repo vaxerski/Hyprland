@@ -871,8 +871,22 @@ void CScrollingAlgorithm::moveTape(float delta) {
     const bool        isPrimaryHoriz = m_scrollingData->controller->isPrimaryHorizontal();
     const double      usablePrimary  = isPrimaryHoriz ? USABLE.w : USABLE.h;
     const double      maxExtent      = m_scrollingData->controller->calculateMaxExtent(USABLE, *PFSONONE);
-    const double      lowerBound     = 0.0;
-    const double      upperBound     = std::max(0.0, maxExtent - usablePrimary);
+    double            lowerBound     = 0.0;
+    double            upperBound     = std::max(0.0, maxExtent - usablePrimary);
+
+    static const auto PFITMETHOD = CConfigValue<Hyprlang::INT>("scrolling:focus_fit_method");
+    if (*PFITMETHOD == 0 && !m_scrollingData->columns.empty()) {
+        const double firstStripSize = m_scrollingData->controller->calculateStripSize(0, USABLE, *PFSONONE);
+        const size_t numColumns     = m_scrollingData->columns.size();
+        const double lastStripSize  = m_scrollingData->controller->calculateStripSize(numColumns - 1, USABLE, *PFSONONE);
+        const double lastStripStart = m_scrollingData->controller->calculateStripStart(numColumns - 1, USABLE, *PFSONONE);
+
+        lowerBound = -(usablePrimary - firstStripSize) / 2.0;
+        upperBound = lastStripStart - (usablePrimary - lastStripSize) / 2.0;
+
+        if (upperBound < lowerBound)
+            upperBound = lowerBound;
+    }
 
     m_scrollingData->controller->setOffset(std::clamp(m_scrollingData->controller->getOffset() - delta, lowerBound, upperBound));
     m_scrollingData->recalculate();
