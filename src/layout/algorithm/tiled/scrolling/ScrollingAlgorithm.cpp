@@ -923,8 +923,27 @@ void CScrollingAlgorithm::commitScrollMoveSnap() {
     auto currentWindow = Desktop::focusState()->window();
     if (!currentWindow) return;
     auto target = currentWindow->layoutTarget();
-    if (target)
-        Log::logger->log(Log::ERR, "SNAP EXECUTED!"); focusOnInput(target, INPUT_MODE_KB);
+    if (!target) return;
+
+    const auto TARGETDATA = dataFor(target);
+    if (!TARGETDATA) return;
+
+    static const auto PFITMETHOD = CConfigValue<Hyprlang::INT>("scrolling:focus_fit_method");
+    static const auto PFSONONE = CConfigValue<Hyprlang::INT>("scrolling:fullscreen_on_one_column");
+
+    if (*PFITMETHOD == 1) {
+        const auto c = TARGETDATA->column.lock();
+        if (c) {
+            int64_t colIdx = m_scrollingData->idx(c);
+            if (colIdx >= 0) {
+                const auto USABLE = usableArea();
+                m_scrollingData->controller->snapStripToNearestEdge(colIdx, USABLE, *PFSONONE);
+            }
+        }
+    } else {
+        m_scrollingData->centerCol(TARGETDATA->column.lock());
+    }
+    m_scrollingData->recalculate();
 }
 
 void CScrollingAlgorithm::moveTargetTo(SP<ITarget> t, Math::eDirection dir, bool silent) {
