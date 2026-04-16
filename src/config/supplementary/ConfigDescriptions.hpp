@@ -2244,6 +2244,18 @@ namespace Config::Supplementary {
             .data        = SConfigOptionDescription::SBoolData{.value = true},
         },
         SConfigOptionDescription{
+            .value       = "scrolling:scrollmove_move_focus",
+            .description = "During the scrollmove trackpad gesture, changes the focus to the window at the center of the screen.",
+            .type        = CONFIG_OPTION_BOOL,
+            .data        = SConfigOptionDescription::SBoolData{.value = true},
+        },
+        SConfigOptionDescription{
+            .value       = "scrolling:scrollmove_snap_on_release",
+            .description = "Centers the currently focused window on the screen when the scrollmove gesture is released.",
+            .type        = CONFIG_OPTION_BOOL,
+            .data        = SConfigOptionDescription::SBoolData{.value = true},
+        },
+        SConfigOptionDescription{
             .value       = "scrolling:wrap_swapcol",
             .description = "Determines if column movement wraps around when moving to before the first column or past the last column",
             .type        = CONFIG_OPTION_BOOL,

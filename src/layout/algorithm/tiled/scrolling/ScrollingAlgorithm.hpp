@@ -110,6 +110,7 @@ namespace Layout::Tiled {
         virtual void                             moveTargetInDirection(SP<ITarget> t, Math::eDirection dir, bool silent);
 
         void                                     moveTape(float delta);
+        void                                     commitScrollMoveSnap();
 
         CBox                                     usableArea();
 
@@ -143,5 +144,7 @@ namespace Layout::Tiled {
         float                    defaultColumnWidth();
 
         friend struct SScrollingData;
+
+        bool m_tapeScrolling = false;
     };
 };

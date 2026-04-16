@@ -248,11 +248,48 @@ void CScrollTapeController::fitStrip(size_t stripIndex, const CBox& usableArea, 
     if (lo > hi) {
         // strip is wider than viewport (e.g. during monitor reconnection after suspend),
         // center the strip instead of hitting the std::clamp assertion
-        m_offset = stripStart - (usablePrimary - stripSize) / 2.0;
+        centerStrip(stripIndex, usableArea, fullscreenOnOne);
         return;
     }
 
-    m_offset = std::clamp(m_offset, lo, hi);
+    if (m_offset < lo)
+        m_offset = lo;
+    else if (m_offset > hi)
+        m_offset = hi;
+}
+
+void CScrollTapeController::snapStripToNearestEdge(size_t stripIndex, const CBox& usableArea, bool fullscreenOnOne) {
+    if (stripIndex >= m_strips.size())
+        return;
+
+    const double usablePrimary = getPrimary(usableArea.size());
+    const double stripStart    = calculateStripStart(stripIndex, usableArea, fullscreenOnOne);
+    const double stripSize     = calculateStripSize(stripIndex, usableArea, fullscreenOnOne);
+
+    const double lo = stripStart - usablePrimary + stripSize;
+    const double hi = stripStart;
+
+    if (lo > hi) {
+        centerStrip(stripIndex, usableArea, fullscreenOnOne);
+        return;
+    }
+
+    if (m_offset <= lo || m_offset >= hi) {
+        fitStrip(stripIndex, usableArea, fullscreenOnOne);
+        return;
+    }
+
+    const double distLo = std::abs(m_offset - lo);
+    const double distHi = std::abs(m_offset - hi);
+    m_offset            = distLo < distHi ? lo : hi;
+
+    // Clamp if fit method enforces boundaries (don't generate voids for intermediate windows)
+    static const auto PFITMETHOD = CConfigValue<Hyprlang::INT>("scrolling:focus_fit_method");
+    if (*PFITMETHOD == 1) {
+        const double maxExtent  = calculateMaxExtent(usableArea, fullscreenOnOne);
+        const double upperBound = std::max(0.0, maxExtent - usablePrimary);
+        m_offset                = std::clamp(m_offset, 0.0, upperBound);
+    }
 }
 
 bool CScrollTapeController::isStripVisible(size_t stripIndex, const CBox& usableArea, bool fullscreenOnOne, bool full) const {

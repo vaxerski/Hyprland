@@ -549,6 +549,9 @@ CScrollingAlgorithm::~CScrollingAlgorithm() {
 }
 
 void CScrollingAlgorithm::focusOnInput(SP<ITarget> target, eInputMode input) {
+    if (m_tapeScrolling)
+        return;
+
     static const auto PFOLLOW_FOCUS_MIN_PERC = CConfigValue<Hyprlang::FLOAT>("scrolling:follow_min_visible");
 
     if (!target || target->space() != m_parent->space())
@@ -868,10 +871,108 @@ void CScrollingAlgorithm::moveTape(float delta) {
     const bool        isPrimaryHoriz = m_scrollingData->controller->isPrimaryHorizontal();
     const double      usablePrimary  = isPrimaryHoriz ? USABLE.w : USABLE.h;
     const double      maxExtent      = m_scrollingData->controller->calculateMaxExtent(USABLE, *PFSONONE);
-    const double      lowerBound     = -usablePrimary;
-    const double      upperBound     = maxExtent;
+    double            lowerBound     = 0.0;
+    double            upperBound     = std::max(0.0, maxExtent - usablePrimary);
+
+    static const auto PFITMETHOD = CConfigValue<Hyprlang::INT>("scrolling:focus_fit_method");
+    if (*PFITMETHOD == 0 && !m_scrollingData->columns.empty()) {
+        const double firstStripSize = m_scrollingData->controller->calculateStripSize(0, USABLE, *PFSONONE);
+        const size_t numColumns     = m_scrollingData->columns.size();
+        const double lastStripSize  = m_scrollingData->controller->calculateStripSize(numColumns - 1, USABLE, *PFSONONE);
+        const double lastStripStart = m_scrollingData->controller->calculateStripStart(numColumns - 1, USABLE, *PFSONONE);
+
+        lowerBound = -(usablePrimary - firstStripSize) / 2.0;
+        upperBound = lastStripStart - (usablePrimary - lastStripSize) / 2.0;
+
+        if (upperBound < lowerBound)
+            upperBound = lowerBound;
+    }
 
     m_scrollingData->controller->setOffset(std::clamp(m_scrollingData->controller->getOffset() - delta, lowerBound, upperBound));
+    m_scrollingData->recalculate();
+
+    static const auto PSCROLLMOVE_MOVE_FOCUS = CConfigValue<Hyprlang::INT>("scrolling:scrollmove_move_focus");
+    if (*PSCROLLMOVE_MOVE_FOCUS && !m_scrollingData->columns.empty()) {
+        SP<SColumnData> bestCol     = nullptr;
+        double          minDistance = 1e9;
+
+        const double    currentOffset = std::clamp(m_scrollingData->controller->getOffset(), lowerBound, upperBound);
+
+        auto            getOi = [&](SP<SColumnData> col) -> double {
+            size_t       idx        = m_scrollingData->idx(col);
+            const double stripStart = m_scrollingData->controller->calculateStripStart(idx, USABLE, *PFSONONE);
+            const double stripSize  = col->getColumnWidth() * usablePrimary;
+            return stripStart - (usablePrimary - stripSize) / 2.0;
+        };
+
+        const double min_O = getOi(m_scrollingData->columns.front());
+        const double max_O = getOi(m_scrollingData->columns.back());
+
+        double       v_offset = currentOffset;
+        if (upperBound > lowerBound) {
+            // Map the physical reachable space to the mathematical ideal space perfectly
+            v_offset = min_O + ((currentOffset - lowerBound) / (upperBound - lowerBound)) * (max_O - min_O);
+        }
+
+        for (const auto& col : m_scrollingData->columns) {
+            if (col->targetDatas.empty())
+                continue;
+
+            double Oi   = getOi(col);
+            double dist = std::abs(v_offset - Oi);
+
+            if (dist < minDistance) {
+                minDistance = dist;
+                bestCol     = col;
+            }
+        }
+
+        if (bestCol) {
+            auto currentWindow = Desktop::focusState()->window();
+            auto targetData    = bestCol->lastFocusedTarget.lock();
+            if (!targetData && !bestCol->targetDatas.empty())
+                targetData = bestCol->targetDatas.front();
+
+            if (targetData) {
+                auto target = targetData->target.lock();
+                if (target && target->window() != currentWindow) {
+                    m_tapeScrolling = true;
+                    Desktop::focusState()->fullWindowFocus(target->window(), Desktop::FOCUS_REASON_OTHER);
+                    m_tapeScrolling = false;
+                }
+            }
+        }
+    }
+}
+
+void CScrollingAlgorithm::commitScrollMoveSnap() {
+    auto currentWindow = Desktop::focusState()->window();
+    if (!currentWindow)
+        return;
+
+    auto target = currentWindow->layoutTarget();
+    if (!target)
+        return;
+
+    const auto TARGETDATA = dataFor(target);
+    if (!TARGETDATA)
+        return;
+
+    static const auto PFITMETHOD = CConfigValue<Hyprlang::INT>("scrolling:focus_fit_method");
+    static const auto PFSONONE   = CConfigValue<Hyprlang::INT>("scrolling:fullscreen_on_one_column");
+
+    if (*PFITMETHOD == 1) {
+        const auto c = TARGETDATA->column.lock();
+        if (c) {
+            int64_t colIdx = m_scrollingData->idx(c);
+            if (colIdx >= 0) {
+                const auto USABLE = usableArea();
+                m_scrollingData->controller->snapStripToNearestEdge(colIdx, USABLE, *PFSONONE);
+            }
+        }
+    } else
+        m_scrollingData->centerCol(TARGETDATA->column.lock());
+
     m_scrollingData->recalculate();
 }
 

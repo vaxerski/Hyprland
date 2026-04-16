@@ -7,6 +7,7 @@
 #include "../../../../layout/algorithm/Algorithm.hpp"
 #include "../../../../layout/algorithm/tiled/scrolling/ScrollingAlgorithm.hpp"
 #include "../../../../layout/space/Space.hpp"
+#include "../../../../config/ConfigValue.hpp"
 
 #include <cmath>
 
@@ -64,5 +65,12 @@ void CScrollMoveTrackpadGesture::update(const ITrackpadGesture::STrackpadGesture
 }
 
 void CScrollMoveTrackpadGesture::end(const ITrackpadGesture::STrackpadGestureEnd& e) {
+    if (m_wasScrollingLayout) {
+        if (const auto SCROLLING = currentScrollingLayout()) {
+            static const auto PSCROLLMOVE_SNAP = CConfigValue<Hyprlang::INT>("scrolling:scrollmove_snap_on_release");
+            if (*PSCROLLMOVE_SNAP)
+                SCROLLING->commitScrollMoveSnap();
+        }
+    }
     m_wasScrollingLayout = false;
 }
