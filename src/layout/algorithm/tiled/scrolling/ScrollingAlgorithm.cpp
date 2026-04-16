@@ -892,48 +892,34 @@ void CScrollingAlgorithm::moveTape(float delta) {
     m_scrollingData->recalculate();
 
     static const auto PSCROLLMOVE_MOVE_FOCUS = CConfigValue<Hyprlang::INT>("scrolling:scrollmove_move_focus");
-    if (*PSCROLLMOVE_MOVE_FOCUS) {
+    if (*PSCROLLMOVE_MOVE_FOCUS && !m_scrollingData->columns.empty()) {
         SP<SColumnData> bestCol     = nullptr;
         double          minDistance = 1e9;
-        const auto      WORKAREA    = m_parent->space()->workArea();
 
-        double          focusAnchorRelative = 0.5;
-        if (upperBound > 0.0) {
-            double currentOffset     = std::clamp(m_scrollingData->controller->getOffset(), lowerBound, upperBound);
-            double theoreticalAnchor = (currentOffset - lowerBound) / (upperBound - lowerBound);
+        const double    currentOffset = std::clamp(m_scrollingData->controller->getOffset(), lowerBound, upperBound);
 
-            if (theoreticalAnchor < 0.5 && delta < 0.0)
-                focusAnchorRelative = 0.5;
-            else if (theoreticalAnchor > 0.5 && delta > 0.0)
-                focusAnchorRelative = 0.5;
-            else
-                focusAnchorRelative = theoreticalAnchor;
+        auto            getOi = [&](SP<SColumnData> col) -> double {
+            size_t       idx        = m_scrollingData->idx(col);
+            const double stripStart = m_scrollingData->controller->calculateStripStart(idx, USABLE, *PFSONONE);
+            const double stripSize  = col->getColumnWidth() * usablePrimary;
+            return stripStart - (usablePrimary - stripSize) / 2.0;
+        };
+
+        const double min_O = getOi(m_scrollingData->columns.front());
+        const double max_O = getOi(m_scrollingData->columns.back());
+
+        double       v_offset = currentOffset;
+        if (upperBound > lowerBound) {
+            // Map the physical reachable space to the mathematical ideal space perfectly
+            v_offset = min_O + ((currentOffset - lowerBound) / (upperBound - lowerBound)) * (max_O - min_O);
         }
 
-        const double centerAbs = isPrimaryHoriz ? WORKAREA.x + WORKAREA.w * focusAnchorRelative : WORKAREA.y + WORKAREA.h * focusAnchorRelative;
         for (const auto& col : m_scrollingData->columns) {
             if (col->targetDatas.empty())
                 continue;
-            const auto firstTargetData = col->targetDatas.front();
-            const auto target          = firstTargetData->target.lock();
-            if (!target)
-                continue;
 
-            const auto pos  = firstTargetData->layoutBox.pos();
-            const auto size = firstTargetData->layoutBox.size();
-
-            double     dist = 0.0;
-            if (isPrimaryHoriz) {
-                if (centerAbs < pos.x)
-                    dist = pos.x - centerAbs;
-                else if (centerAbs > pos.x + size.x)
-                    dist = centerAbs - (pos.x + size.x);
-            } else {
-                if (centerAbs < pos.y)
-                    dist = pos.y - centerAbs;
-                else if (centerAbs > pos.y + size.y)
-                    dist = centerAbs - (pos.y + size.y);
-            }
+            double Oi   = getOi(col);
+            double dist = std::abs(v_offset - Oi);
 
             if (dist < minDistance) {
                 minDistance = dist;

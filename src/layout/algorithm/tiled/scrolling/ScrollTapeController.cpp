@@ -282,6 +282,14 @@ void CScrollTapeController::snapStripToNearestEdge(size_t stripIndex, const CBox
     const double distLo = std::abs(m_offset - lo);
     const double distHi = std::abs(m_offset - hi);
     m_offset            = distLo < distHi ? lo : hi;
+
+    // Clamp if fit method enforces boundaries (don't generate voids for intermediate windows)
+    static const auto PFITMETHOD = CConfigValue<Hyprlang::INT>("scrolling:focus_fit_method");
+    if (*PFITMETHOD == 1) {
+        const double maxExtent  = calculateMaxExtent(usableArea, fullscreenOnOne);
+        const double upperBound = std::max(0.0, maxExtent - usablePrimary);
+        m_offset                = std::clamp(m_offset, 0.0, upperBound);
+    }
 }
 
 bool CScrollTapeController::isStripVisible(size_t stripIndex, const CBox& usableArea, bool fullscreenOnOne, bool full) const {
