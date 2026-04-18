@@ -26,6 +26,11 @@ static int dsp_changeGroupActive(lua_State* L) {
     return 0;
 }
 
+static int dsp_setGroupActive(lua_State* L) {
+    Internal::checkResult(L, CA::setGroupActive((int)lua_tonumber(L, lua_upvalueindex(1)), Internal::windowFromUpval(L, 2)));
+    return 0;
+}
+
 static int dsp_moveGroupWindow(lua_State* L) {
     Internal::checkResult(L, CA::moveGroupWindow(lua_toboolean(L, lua_upvalueindex(1))));
     return 0;
@@ -93,6 +98,16 @@ static int hlGroupMoveWindow(lua_State* L) {
     return 1;
 }
 
+static int hlGroupActive(lua_State* L) {
+    if (!lua_istable(L, 1))
+        return luaL_error(L, "hl.group.active: expected a table { index, window? }");
+
+    lua_pushnumber(L, Internal::requireTableFieldNum(L, 1, "index", "hl.group.active"));
+    Internal::pushWindowUpval(L, 1);
+    lua_pushcclosure(L, dsp_setGroupActive, 2);
+    return 1;
+}
+
 static int hlGroupLock(lua_State* L) {
     const auto action = Internal::tableToggleAction(L, 1);
 
@@ -119,6 +134,7 @@ void Internal::registerCursorGroupBindings(lua_State* L) {
     Internal::setFn(L, "toggle", hlGroupToggle);
     Internal::setFn(L, "next", hlGroupNext);
     Internal::setFn(L, "prev", hlGroupPrev);
+    Internal::setFn(L, "active", hlGroupActive);
     Internal::setFn(L, "move_window", hlGroupMoveWindow);
     Internal::setFn(L, "lock", hlGroupLock);
     Internal::setFn(L, "lock_active", hlGroupLockActive);

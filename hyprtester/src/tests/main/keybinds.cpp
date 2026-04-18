@@ -48,7 +48,7 @@ static bool attemptCheckFlag(int attempts, int intervalMs) {
 static std::string readKittyOutput() {
     std::string output = Tests::execAndGet("kitten @ --to unix:/tmp/hyprtester-kitty.sock get-text --extent all");
     // chop off shell prompt
-    std::size_t pos = output.rfind("$");
+    std::size_t pos = output.rfind('$');
     if (pos != std::string::npos) {
         pos += 1;
         if (pos < output.size())
@@ -62,7 +62,7 @@ static void awaitKittyPrompt() {
     // wait until we see the shell prompt, meaning it's ready for test inputs
     for (int i = 0; i < 10; i++) {
         std::string output = Tests::execAndGet("kitten @ --to unix:/tmp/hyprtester-kitty.sock get-text --extent all");
-        if (output.rfind("$") == std::string::npos) {
+        if (output.rfind('$') == std::string::npos) {
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
             continue;
         }
@@ -80,36 +80,67 @@ static CUniquePointer<CProcess> spawnRemoteControlKitty() {
     return kittyProc;
 }
 
+static std::string bindLua(const std::string& keys, const std::string& dispatcherExpr, const std::string& opts = "") {
+    if (opts.empty())
+        return Tests::evalLua("hl.bind(" + Tests::luaQuote(keys) + ", " + dispatcherExpr + ")");
+
+    return Tests::evalLua("hl.bind(" + Tests::luaQuote(keys) + ", " + dispatcherExpr + ", { " + opts + " })");
+}
+
+static std::string bindExec(const std::string& keys, const std::string& cmd, const std::string& opts = "") {
+    return bindLua(keys, "hl.exec_cmd(" + Tests::luaQuote(cmd) + ")", opts);
+}
+
+static std::string bindSendShortcut(const std::string& keys, const std::string& mods, const std::string& key, const std::string& opts = "") {
+    return bindLua(keys, "hl.send_shortcut({ mods = " + Tests::luaQuote(mods) + ", key = " + Tests::luaQuote(key) + " })", opts);
+}
+
+static std::string unbindLua(const std::string& mods, const std::string& key) {
+    return Tests::evalLua("hl.unbind(" + Tests::luaQuote(mods) + ", " + Tests::luaQuote(key) + ")");
+}
+
+static std::string setConfig(const std::string& key, const std::string& valueLuaExpr) {
+    return Tests::evalLua("hl.config({ [" + Tests::luaQuote(key) + "] = " + valueLuaExpr + " })");
+}
+
+static std::string testPluginKeybind(const int state, const int mods, const int keycode) {
+    return Tests::evalLua("hl.plugin.test.keybind(\"" + std::to_string(state) + "," + std::to_string(mods) + "," + std::to_string(keycode) + "\")");
+}
+
+static std::string testPluginScroll(const int delta) {
+    return Tests::evalLua("hl.plugin.test.scroll(" + std::to_string(delta) + ")");
+}
+
 static void testBind() {
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword bind SUPER,Y,exec,touch " + flagFile), "ok");
+    EXPECT(bindExec("SUPER + Y", "touch " + flagFile), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
     // await flag
     EXPECT(attemptCheckFlag(20, 50), true);
     // release keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    OK(testPluginKeybind(0, 0, 29));
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
 }
 
 static void testBindKey() {
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword bind ,Y,exec,touch " + flagFile), "ok");
+    EXPECT(bindExec("Y", "touch " + flagFile), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,0,29"));
+    OK(testPluginKeybind(1, 0, 29));
     // await flag
     EXPECT(attemptCheckFlag(20, 50), true);
     // release keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind ,Y"), "ok");
+    OK(testPluginKeybind(0, 0, 29));
+    EXPECT(unbindLua("", "Y"), "ok");
 }
 
 static void testLongPress() {
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword bindo SUPER,Y,exec,touch " + flagFile), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_delay 100"), "ok");
+    EXPECT(bindExec("SUPER + Y", "touch " + flagFile, "long_press = true"), "ok");
+    EXPECT(setConfig("input.repeat_delay", "100"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
     // check no flag on short press
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT(checkFlag(), false);
@@ -117,16 +148,16 @@ static void testLongPress() {
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     EXPECT(checkFlag(), true);
     // release keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    OK(testPluginKeybind(0, 0, 29));
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
 }
 
 static void testKeyLongPress() {
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword bindo ,Y,exec,touch " + flagFile), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_delay 100"), "ok");
+    EXPECT(bindExec("Y", "touch " + flagFile, "long_press = true"), "ok");
+    EXPECT(setConfig("input.repeat_delay", "100"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,0,29"));
+    OK(testPluginKeybind(1, 0, 29));
     // check no flag on short press
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT(checkFlag(), false);
@@ -134,51 +165,51 @@ static void testKeyLongPress() {
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     EXPECT(checkFlag(), true);
     // release keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind ,Y"), "ok");
+    OK(testPluginKeybind(0, 0, 29));
+    EXPECT(unbindLua("", "Y"), "ok");
 }
 
 static void testLongPressRelease() {
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword bindo SUPER,Y,exec,touch " + flagFile), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_delay 100"), "ok");
+    EXPECT(bindExec("SUPER + Y", "touch " + flagFile, "long_press = true"), "ok");
+    EXPECT(setConfig("input.repeat_delay", "100"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
     // check no flag on short press
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT(checkFlag(), false);
     // release keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
+    OK(testPluginKeybind(0, 0, 29));
     // await repeat delay
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
 }
 
 static void testLongPressOnlyKeyRelease() {
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword bindo SUPER,Y,exec,touch " + flagFile), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_delay 100"), "ok");
+    EXPECT(bindExec("SUPER + Y", "touch " + flagFile, "long_press = true"), "ok");
+    EXPECT(setConfig("input.repeat_delay", "100"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
     // check no flag on short press
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT(checkFlag(), false);
     // release key, keep modifier
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,7,29"));
+    OK(testPluginKeybind(0, 7, 29));
     // await repeat delay
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     EXPECT(checkFlag(), false);
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    OK(testPluginKeybind(0, 0, 29));
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
 }
 
 static void testRepeat() {
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword binde SUPER,Y,exec,touch " + flagFile), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_delay 100"), "ok");
+    EXPECT(bindExec("SUPER + Y", "touch " + flagFile, "repeating = true"), "ok");
+    EXPECT(setConfig("input.repeat_delay", "100"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
     // await flag
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     EXPECT(checkFlag(), true);
@@ -189,16 +220,16 @@ static void testRepeat() {
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     EXPECT(checkFlag(), true);
     // release keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    OK(testPluginKeybind(0, 0, 29));
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
 }
 
 static void testKeyRepeat() {
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword binde ,Y,exec,touch " + flagFile), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_delay 100"), "ok");
+    EXPECT(bindExec("Y", "touch " + flagFile, "repeating = true"), "ok");
+    EXPECT(setConfig("input.repeat_delay", "100"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,0,29"));
+    OK(testPluginKeybind(1, 0, 29));
     // await flag
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT(checkFlag(), true);
@@ -209,21 +240,21 @@ static void testKeyRepeat() {
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     EXPECT(checkFlag(), true);
     // release keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind ,Y"), "ok");
+    OK(testPluginKeybind(0, 0, 29));
+    EXPECT(unbindLua("", "Y"), "ok");
 }
 
 static void testRepeatRelease() {
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword binde SUPER,Y,exec,touch " + flagFile), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_delay 100"), "ok");
+    EXPECT(bindExec("SUPER + Y", "touch " + flagFile, "repeating = true"), "ok");
+    EXPECT(setConfig("input.repeat_delay", "100"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
     // await flag
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT(checkFlag(), true);
     // release keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
+    OK(testPluginKeybind(0, 0, 29));
     // await repeat delay
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     clearFlag();
@@ -232,20 +263,20 @@ static void testRepeatRelease() {
     // check that it is not repeating
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
 }
 
 static void testRepeatOnlyKeyRelease() {
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword binde SUPER,Y,exec,touch " + flagFile), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_delay 100"), "ok");
+    EXPECT(bindExec("SUPER + Y", "touch " + flagFile, "repeating = true"), "ok");
+    EXPECT(setConfig("input.repeat_delay", "100"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
     // await flag
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     EXPECT(checkFlag(), true);
     // release key, keep modifier
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,7,29"));
+    OK(testPluginKeybind(0, 7, 29));
     // await repeat delay
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     clearFlag();
@@ -254,8 +285,8 @@ static void testRepeatOnlyKeyRelease() {
     // check that it is not repeating
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     EXPECT(checkFlag(), false);
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    OK(testPluginKeybind(0, 0, 29));
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
 }
 
 static void testShortcutBind() {
@@ -265,18 +296,18 @@ static void testShortcutBind() {
         ret = 1;
         return;
     }
-    EXPECT(getFromSocket("/dispatch focuswindow class:keybinds_test"), "ok");
-    EXPECT(getFromSocket("/keyword bind SUPER,Y,sendshortcut,,q,"), "ok");
+    EXPECT(Tests::dispatchLua("hl.focus({ window = \"class:keybinds_test\" })"), "ok");
+    EXPECT(bindSendShortcut("SUPER + Y", "", "q"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
     // release keybind
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
+    OK(testPluginKeybind(0, 0, 29));
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     const std::string output = readKittyOutput();
     EXPECT_COUNT_STRING(output, "y", 0);
     EXPECT_COUNT_STRING(output, "q", 1);
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
     Tests::killAllWindows();
 }
 
@@ -287,19 +318,19 @@ static void testShortcutBindKey() {
         ret = 1;
         return;
     }
-    EXPECT(getFromSocket("/dispatch focuswindow class:keybinds_test"), "ok");
-    EXPECT(getFromSocket("/keyword bind ,Y,sendshortcut,,q,"), "ok");
+    EXPECT(Tests::dispatchLua("hl.focus({ window = \"class:keybinds_test\" })"), "ok");
+    EXPECT(bindSendShortcut("Y", "", "q"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,0,29"));
+    OK(testPluginKeybind(1, 0, 29));
     // release keybind
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
+    OK(testPluginKeybind(0, 0, 29));
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     const std::string output = readKittyOutput();
     EXPECT_COUNT_STRING(output, "y", 0);
     // disabled: doesn't work in CI
     // EXPECT_COUNT_STRING(output, "q", 1);
-    EXPECT(getFromSocket("/keyword unbind ,Y"), "ok");
+    EXPECT(unbindLua("", "Y"), "ok");
     Tests::killAllWindows();
 }
 
@@ -310,15 +341,15 @@ static void testShortcutLongPress() {
         ret = 1;
         return;
     }
-    EXPECT(getFromSocket("/dispatch focuswindow class:keybinds_test"), "ok");
-    EXPECT(getFromSocket("/keyword bindo SUPER,Y,sendshortcut,,q,"), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_delay 100"), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_rate 10"), "ok");
+    EXPECT(Tests::dispatchLua("hl.focus({ window = \"class:keybinds_test\" })"), "ok");
+    EXPECT(bindSendShortcut("SUPER + Y", "", "q", "long_press = true"), "ok");
+    EXPECT(setConfig("input.repeat_delay", "100"), "ok");
+    EXPECT(setConfig("input.repeat_rate", "10"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
     // await repeat delay
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
+    OK(testPluginKeybind(0, 0, 29));
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     const std::string output = readKittyOutput();
     int               yCount = Tests::countOccurrences(output, "y");
@@ -328,7 +359,7 @@ static void testShortcutLongPress() {
     // final release stop repeats, and shouldn't send any more
     EXPECT(true, yCount == 1 || yCount == 2);
     EXPECT_COUNT_STRING(output, "q", 1);
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
     Tests::killAllWindows();
 }
 
@@ -339,23 +370,23 @@ static void testShortcutLongPressKeyRelease() {
         ret = 1;
         return;
     }
-    EXPECT(getFromSocket("/dispatch focuswindow class:keybinds_test"), "ok");
-    EXPECT(getFromSocket("/keyword bindo SUPER,Y,sendshortcut,,q,"), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_delay 100"), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_rate 10"), "ok");
+    EXPECT(Tests::dispatchLua("hl.focus({ window = \"class:keybinds_test\" })"), "ok");
+    EXPECT(bindSendShortcut("SUPER + Y", "", "q", "long_press = true"), "ok");
+    EXPECT(setConfig("input.repeat_delay", "100"), "ok");
+    EXPECT(setConfig("input.repeat_rate", "10"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     // release key, keep modifier
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,7,29"));
+    OK(testPluginKeybind(0, 7, 29));
     // await repeat delay
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     const std::string output = readKittyOutput();
     // disabled: doesn't work on CI
     // EXPECT_COUNT_STRING(output, "y", 1);
     EXPECT_COUNT_STRING(output, "q", 0);
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    OK(testPluginKeybind(0, 0, 29));
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
     Tests::killAllWindows();
 }
 
@@ -366,16 +397,16 @@ static void testShortcutRepeat() {
         ret = 1;
         return;
     }
-    EXPECT(getFromSocket("/dispatch focuswindow class:keybinds_test"), "ok");
-    EXPECT(getFromSocket("/keyword binde SUPER,Y,sendshortcut,,q,"), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_rate 5"), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_delay 200"), "ok");
+    EXPECT(Tests::dispatchLua("hl.focus({ window = \"class:keybinds_test\" })"), "ok");
+    EXPECT(bindSendShortcut("SUPER + Y", "", "q", "repeating = true"), "ok");
+    EXPECT(setConfig("input.repeat_rate", "5"), "ok");
+    EXPECT(setConfig("input.repeat_delay", "200"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
     // await repeat
     std::this_thread::sleep_for(std::chrono::milliseconds(210));
     // release keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
+    OK(testPluginKeybind(0, 0, 29));
     std::this_thread::sleep_for(std::chrono::milliseconds(450));
     const std::string output = readKittyOutput();
     EXPECT_COUNT_STRING(output, "y", 0);
@@ -385,7 +416,7 @@ static void testShortcutRepeat() {
     // then repeat triggers, sending 1 q
     // final release stop repeats, and shouldn't send any more
     EXPECT(true, qCount == 2 || qCount == 3);
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
     Tests::killAllWindows();
 }
 
@@ -396,15 +427,15 @@ static void testShortcutRepeatKeyRelease() {
         ret = 1;
         return;
     }
-    EXPECT(getFromSocket("/dispatch focuswindow class:keybinds_test"), "ok");
-    EXPECT(getFromSocket("/keyword binde SUPER,Y,sendshortcut,,q,"), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_rate 5"), "ok");
-    EXPECT(getFromSocket("/keyword input:repeat_delay 200"), "ok");
+    EXPECT(Tests::dispatchLua("hl.focus({ window = \"class:keybinds_test\" })"), "ok");
+    EXPECT(bindSendShortcut("SUPER + Y", "", "q", "repeating = true"), "ok");
+    EXPECT(setConfig("input.repeat_rate", "5"), "ok");
+    EXPECT(setConfig("input.repeat_delay", "200"), "ok");
     // press keybind
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
     std::this_thread::sleep_for(std::chrono::milliseconds(210));
     // release key, keep modifier
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,7,29"));
+    OK(testPluginKeybind(0, 7, 29));
     // if repeat was still active, we'd get 2 more q's here
     std::this_thread::sleep_for(std::chrono::milliseconds(450));
     // release modifier
@@ -416,16 +447,16 @@ static void testShortcutRepeatKeyRelease() {
     // then repeat triggers, sending 1 q
     // final release stop repeats, and shouldn't send any more
     EXPECT(true, qCount == 2 || qCount == 3);
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    OK(testPluginKeybind(0, 0, 29));
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
     Tests::killAllWindows();
 }
 
 static void testSubmap() {
     const auto press = [](const uint32_t key, const uint32_t mod = 0) {
         // +8 because udev -> XKB keycode.
-        getFromSocket("/dispatch plugin:test:keybind 1," + std::to_string(mod) + "," + std::to_string(key + 8));
-        getFromSocket("/dispatch plugin:test:keybind 0," + std::to_string(mod) + "," + std::to_string(key + 8));
+        testPluginKeybind(1, mod, key + 8);
+        testPluginKeybind(0, mod, key + 8);
     };
 
     NLog::log("{}Testing submaps", Colors::GREEN);
@@ -460,57 +491,57 @@ static void testBindsAfterScroll() {
     NLog::log("{}Testing binds after scroll", Colors::GREEN);
 
     clearFlag();
-    OK(getFromSocket("/keyword binds Alt_R,w,exec,touch " + flagFile));
+    OK(bindExec("ALT + w", "touch " + flagFile));
 
     // press keybind before scroll
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,0,108")); // Alt_R press
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,4,25"));  // w press
+    OK(testPluginKeybind(1, 0, 108)); // Alt_R press
+    OK(testPluginKeybind(1, 4, 25));  // w press
     EXPECT(attemptCheckFlag(20, 50), true);
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,4,25"));  // w release
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,108")); // Alt_R release
+    OK(testPluginKeybind(0, 4, 25));  // w release
+    OK(testPluginKeybind(0, 0, 108)); // Alt_R release
 
     // scroll
-    OK(getFromSocket("/dispatch plugin:test:scroll 120"));
-    OK(getFromSocket("/dispatch plugin:test:scroll -120"));
-    OK(getFromSocket("/dispatch plugin:test:scroll 120"));
+    OK(testPluginScroll(120));
+    OK(testPluginScroll(-120));
+    OK(testPluginScroll(120));
 
     // press keybind after scroll
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,0,108")); // Alt_R press
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,4,25"));  // w press
+    OK(testPluginKeybind(1, 0, 108)); // Alt_R press
+    OK(testPluginKeybind(1, 4, 25));  // w press
     EXPECT(attemptCheckFlag(20, 50), true);
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,4,25"));  // w release
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,108")); // Alt_R release
+    OK(testPluginKeybind(0, 4, 25));  // w release
+    OK(testPluginKeybind(0, 0, 108)); // Alt_R release
 
     clearFlag();
-    OK(getFromSocket("/keyword unbind Alt_R,w"));
+    OK(unbindLua("ALT", "w"));
 }
 
 static void testSubmapUniversal() {
     NLog::log("{}Testing submap universal", Colors::GREEN);
 
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword bindu SUPER,Y,exec,touch " + flagFile), "ok");
+    EXPECT(bindExec("SUPER + Y", "touch " + flagFile, "submap_universal = true"), "ok");
     EXPECT_CONTAINS(getFromSocket("/submap"), "default");
 
     // keybind works on default submap
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
+    OK(testPluginKeybind(0, 7, 29));
     EXPECT(attemptCheckFlag(30, 5), true);
 
     // keybind works on submap1
-    getFromSocket("/dispatch plugin:test:keybind 1,7,30");
-    getFromSocket("/dispatch plugin:test:keybind 0,7,30");
+    testPluginKeybind(1, 7, 30);
+    testPluginKeybind(0, 7, 30);
     EXPECT_CONTAINS(getFromSocket("/submap"), "submap1");
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,7,29"));
+    OK(testPluginKeybind(1, 7, 29));
+    OK(testPluginKeybind(0, 7, 29));
     EXPECT(attemptCheckFlag(30, 5), true);
 
     // reset to default submap
-    getFromSocket("/dispatch plugin:test:keybind 1,0,33");
-    getFromSocket("/dispatch plugin:test:keybind 0,0,33");
+    testPluginKeybind(1, 0, 33);
+    testPluginKeybind(0, 0, 33);
     EXPECT_CONTAINS(getFromSocket("/submap"), "default");
 
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
 }
 
 static void testPerDeviceKeybind() {
@@ -518,27 +549,27 @@ static void testPerDeviceKeybind() {
 
     // Inclusive
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword bindk SUPER,Y,test-keyboard-1,exec,touch " + flagFile), "ok");
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    EXPECT(bindExec("SUPER + Y", "touch " + flagFile, "device = { inclusive = true, list = { \"test-keyboard-1\" } }"), "ok");
+    OK(testPluginKeybind(1, 7, 29));
     EXPECT(attemptCheckFlag(20, 50), true);
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    OK(testPluginKeybind(0, 0, 29));
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
 
     // Exclusive
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword bindk SUPER,Y,!test-keyboard-1,exec,touch " + flagFile), "ok");
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    EXPECT(bindExec("SUPER + Y", "touch " + flagFile, "device = { inclusive = false, list = { \"test-keyboard-1\" } }"), "ok");
+    OK(testPluginKeybind(1, 7, 29));
     EXPECT(attemptCheckFlag(20, 50), false);
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    OK(testPluginKeybind(0, 0, 29));
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
 
     // With description
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword binddk SUPER,Y,test-keyboard-1,test description,exec,touch " + flagFile), "ok");
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    EXPECT(bindExec("SUPER + Y", "touch " + flagFile, "device = { inclusive = true, list = { \"test-keyboard-1\" } }, description = \"test description\""), "ok");
+    OK(testPluginKeybind(1, 7, 29));
     EXPECT(attemptCheckFlag(20, 50), true);
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    OK(testPluginKeybind(0, 0, 29));
+    EXPECT(unbindLua("SUPER", "Y"), "ok");
 }
 
 static bool test() {

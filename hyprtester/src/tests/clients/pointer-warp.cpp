@@ -75,12 +75,13 @@ static bool startClient(SClient& client) {
         }
     }
 
-    if (getFromSocket(std::format("/dispatch setprop pid:{} no_anim 1", client.proc->pid())) != "ok") {
+    if (Tests::dispatchLua(std::format("hl.window.set_prop({{ window = {}, prop = \"no_anim\", value = \"1\" }})", Tests::luaQuote(std::format("pid:{}", client.proc->pid())))) !=
+        "ok") {
         NLog::log("{}Failed to disable animations for client window", Colors::RED, ret);
         return false;
     }
 
-    if (getFromSocket(std::format("/dispatch focuswindow pid:{}", client.proc->pid())) != "ok") {
+    if (Tests::dispatchLua(std::format("hl.focus({{ window = {} }})", Tests::luaQuote(std::format("pid:{}", client.proc->pid())))) != "ok") {
         NLog::log("{}Failed to focus pointer-warp client", Colors::RED, ret);
         return false;
     }

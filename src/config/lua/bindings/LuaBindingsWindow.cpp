@@ -41,11 +41,68 @@ static int dsp_fullscreenWindow(lua_State* L) {
     return 0;
 }
 
+static int dsp_fullscreenWindowWithAction(lua_State* L) {
+    const auto mode      = sc<eFullscreenMode>((int)lua_tonumber(L, lua_upvalueindex(1)));
+    const int  actionRaw = (int)lua_tonumber(L, lua_upvalueindex(2));
+    auto       maybeW    = Internal::windowFromUpval(L, 3);
+
+    if (actionRaw == 0) {
+        Internal::checkResult(L, CA::fullscreenWindow(mode, maybeW));
+        return 0;
+    }
+
+    const auto target = maybeW.value_or(Desktop::focusState()->window());
+    if (!target)
+        return luaL_error(L, "No target found.");
+
+    const bool currentlyMode = target->isEffectiveInternalFSMode(mode);
+
+    if (actionRaw == 1) {
+        if (!currentlyMode)
+            Internal::checkResult(L, CA::fullscreenWindow(mode, maybeW));
+        return 0;
+    }
+
+    if (actionRaw == 2) {
+        if (currentlyMode)
+            Internal::checkResult(L, CA::fullscreenWindow(mode, maybeW));
+        return 0;
+    }
+
+    return luaL_error(L, "hl.window.fullscreen: invalid action");
+}
+
 static int dsp_fullscreenState(lua_State* L) {
-    Internal::checkResult(L,
-                          CA::fullscreenWindow(sc<eFullscreenMode>((int)lua_tonumber(L, lua_upvalueindex(1))), sc<eFullscreenMode>((int)lua_tonumber(L, lua_upvalueindex(2))),
-                                               Internal::windowFromUpval(L, 3)));
-    return 0;
+    const auto desiredInternal = sc<eFullscreenMode>((int)lua_tonumber(L, lua_upvalueindex(1)));
+    const auto desiredClient   = sc<eFullscreenMode>((int)lua_tonumber(L, lua_upvalueindex(2)));
+    const int  actionRaw       = (int)lua_tonumber(L, lua_upvalueindex(3)); // 0: toggle, 1: set, 2: unset
+    auto       maybeW          = Internal::windowFromUpval(L, 4);
+
+    const auto target = maybeW.value_or(Desktop::focusState()->window());
+    if (!target)
+        return luaL_error(L, "No target found.");
+
+    const auto CURRENT        = target->m_fullscreenState;
+    const bool atDesiredState = CURRENT.internal == desiredInternal && CURRENT.client == desiredClient;
+
+    if (actionRaw == 0) {
+        Internal::checkResult(L, CA::fullscreenWindow(desiredInternal, desiredClient, maybeW));
+        return 0;
+    }
+
+    if (actionRaw == 1) {
+        if (!atDesiredState)
+            Internal::checkResult(L, CA::fullscreenWindow(desiredInternal, desiredClient, maybeW));
+        return 0;
+    }
+
+    if (actionRaw == 2) {
+        if (atDesiredState)
+            Internal::checkResult(L, CA::fullscreenWindow(desiredInternal, desiredClient, maybeW));
+        return 0;
+    }
+
+    return luaL_error(L, "hl.window.fullscreen_state: invalid action");
 }
 
 static int dsp_pseudoWindow(lua_State* L) {
@@ -80,6 +137,18 @@ static int dsp_cycleNext(lua_State* L) {
 
 static int dsp_swapNext(lua_State* L) {
     Internal::checkResult(L, CA::swapNext(lua_toboolean(L, lua_upvalueindex(1)), Internal::windowFromUpval(L, 2)));
+    return 0;
+}
+
+static int dsp_swapWithWindow(lua_State* L) {
+    auto       source = Internal::windowFromUpval(L, 1);
+
+    const auto targetSelector = lua_tostring(L, lua_upvalueindex(2));
+    const auto target         = g_pCompositor->getWindowByRegex(targetSelector);
+    if (!target)
+        return luaL_error(L, "hl.window.swap: target window not found");
+
+    Internal::checkResult(L, CA::swapWith(target, source));
     return 0;
 }
 
@@ -192,7 +261,8 @@ static int hlWindowFloat(lua_State* L) {
 }
 
 static int hlWindowFullscreen(lua_State* L) {
-    eFullscreenMode mode = FSMODE_FULLSCREEN;
+    eFullscreenMode mode   = FSMODE_FULLSCREEN;
+    int             action = 0; // 0: toggle, 1: set, 2: unset
     if (lua_istable(L, 1)) {
         auto m = Internal::tableOptStr(L, 1, "mode");
         if (m) {
@@ -203,24 +273,57 @@ static int hlWindowFullscreen(lua_State* L) {
             else
                 return luaL_error(L, "hl.window.fullscreen: invalid mode \"%s\" (expected fullscreen/maximized)", m->c_str());
         }
+
+        auto a = Internal::tableOptStr(L, 1, "action");
+        if (a) {
+            if (*a == "toggle")
+                action = 0;
+            else if (*a == "set")
+                action = 1;
+            else if (*a == "unset")
+                action = 2;
+            else
+                return luaL_error(L, "hl.window.fullscreen: invalid action \"%s\" (expected toggle/set/unset)", a->c_str());
+        }
     }
     lua_pushnumber(L, (int)mode);
-    Internal::pushWindowUpval(L, 1);
-    lua_pushcclosure(L, dsp_fullscreenWindow, 2);
+    if (action == 0) {
+        Internal::pushWindowUpval(L, 1);
+        lua_pushcclosure(L, dsp_fullscreenWindow, 2);
+    } else {
+        lua_pushnumber(L, action);
+        Internal::pushWindowUpval(L, 1);
+        lua_pushcclosure(L, dsp_fullscreenWindowWithAction, 3);
+    }
     return 1;
 }
 
 static int hlWindowFullscreenState(lua_State* L) {
     if (!lua_istable(L, 1))
-        return luaL_error(L, "hl.window.fullscreen_state: expected a table { internal, client, window? }");
+        return luaL_error(L, "hl.window.fullscreen_state: expected a table { internal, client, action?, window? }");
+
+    int action = 1; // default to set semantics
+    if (auto a = Internal::tableOptStr(L, 1, "action"); a) {
+        if (*a == "toggle")
+            action = 0;
+        else if (*a == "set")
+            action = 1;
+        else if (*a == "unset")
+            action = 2;
+        else
+            return luaL_error(L, "hl.window.fullscreen_state: invalid action \"%s\" (expected toggle/set/unset)", a->c_str());
+    }
+
     auto im = Internal::tableOptNum(L, 1, "internal");
     auto cm = Internal::tableOptNum(L, 1, "client");
     if (!im || !cm)
         return luaL_error(L, "hl.window.fullscreen_state: 'internal' and 'client' are required");
+
     lua_pushnumber(L, (int)*im);
     lua_pushnumber(L, (int)*cm);
+    lua_pushnumber(L, action);
     Internal::pushWindowUpval(L, 1);
-    lua_pushcclosure(L, dsp_fullscreenState, 3);
+    lua_pushcclosure(L, dsp_fullscreenState, 4);
     return 1;
 }
 
@@ -337,6 +440,19 @@ static int hlWindowSwap(lua_State* L) {
         return 1;
     }
 
+    auto target = Internal::tableOptWindowSelector(L, 1, "target", "hl.window.swap");
+    if (!target)
+        target = Internal::tableOptWindowSelector(L, 1, "with", "hl.window.swap");
+    if (!target)
+        target = Internal::tableOptWindowSelector(L, 1, "other", "hl.window.swap");
+
+    if (target) {
+        Internal::pushWindowUpval(L, 1);
+        lua_pushstring(L, target->c_str());
+        lua_pushcclosure(L, dsp_swapWithWindow, 2);
+        return 1;
+    }
+
     auto next = Internal::tableOptBool(L, 1, "next");
     if (next && *next) {
         lua_pushboolean(L, true);
@@ -353,7 +469,7 @@ static int hlWindowSwap(lua_State* L) {
         return 1;
     }
 
-    return luaL_error(L, "hl.window.swap: unrecognized arguments. Expected one of: direction, next, prev");
+    return luaL_error(L, "hl.window.swap: unrecognized arguments. Expected one of: direction, target/with/other, next, prev");
 }
 
 static int hlWindowCenter(lua_State* L) {

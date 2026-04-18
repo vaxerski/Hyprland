@@ -22,7 +22,10 @@
 #include "../../../desktop/rule/layerRule/LayerRuleEffectContainer.hpp"
 #include "../../../desktop/rule/windowRule/WindowRule.hpp"
 #include "../../../desktop/rule/windowRule/WindowRuleEffectContainer.hpp"
+#include "../../../layout/LayoutManager.hpp"
+#include "../../../layout/supplementary/WorkspaceAlgoMatcher.hpp"
 #include "../../../managers/animation/AnimationManager.hpp"
+#include "../../../managers/input/InputManager.hpp"
 #include "../../../managers/input/trackpad/TrackpadGestures.hpp"
 #include "../../../managers/input/trackpad/gestures/CloseGesture.hpp"
 #include "../../../managers/input/trackpad/gestures/CursorZoomGesture.hpp"
@@ -79,6 +82,16 @@ namespace {
          [](ILuaConfigValue* v, CMonitorRuleParser& p) { return p.parsePosition(*static_cast<const Config::STRING*>(v->data())); }},
         {"scale", []() -> ILuaConfigValue* { return new CLuaConfigString("auto"); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) { return p.parseScale(*static_cast<const Config::STRING*>(v->data())); }},
+        {"reserved", []() -> ILuaConfigValue* { return new CLuaConfigCssGap(0); },
+         [](ILuaConfigValue* v, CMonitorRuleParser& p) {
+             const auto& gap = *static_cast<const Config::CCssGapData*>(v->data());
+             return p.setReserved(Desktop::CReservedArea(gap.m_top, gap.m_right, gap.m_bottom, gap.m_left));
+         }},
+        {"reserved_area", []() -> ILuaConfigValue* { return new CLuaConfigCssGap(0); },
+         [](ILuaConfigValue* v, CMonitorRuleParser& p) {
+             const auto& gap = *static_cast<const Config::CCssGapData*>(v->data());
+             return p.setReserved(Desktop::CReservedArea(gap.m_top, gap.m_right, gap.m_bottom, gap.m_left));
+         }},
         {"disabled", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
              if (*static_cast<const Config::BOOL*>(v->data()))
@@ -312,6 +325,34 @@ namespace {
         {"share_states", []() -> ILuaConfigValue* { return new CLuaConfigInt(0, 0, 2); }},
         {"release_pressed_on_close", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); }},
     };
+
+    std::expected<std::string, std::string> ruleValueToString(lua_State* L) {
+        if (lua_type(L, -1) == LUA_TBOOLEAN)
+            return lua_toboolean(L, -1) ? "true" : "false";
+
+        if (lua_isinteger(L, -1))
+            return std::to_string(lua_tointeger(L, -1));
+
+        if (lua_isnumber(L, -1))
+            return std::to_string(lua_tonumber(L, -1));
+
+        if (lua_isstring(L, -1))
+            return std::string(lua_tostring(L, -1));
+
+        return std::unexpected("value must be a string, bool, or number");
+    }
+
+    void recalculateMonitorLayouts() {
+        if (!g_layoutManager)
+            return;
+
+        for (const auto& m : g_pCompositor->m_monitors) {
+            if (!m)
+                continue;
+
+            g_layoutManager->recalculateMonitor(m);
+        }
+    }
 
 }
 
@@ -691,6 +732,12 @@ static int hlWorkspaceRule(lua_State* L) {
     }
 
     Config::workspaceRuleMgr()->replaceOrAdd(std::move(wsRule));
+
+    if (!self->isFirstLaunch())
+        g_pCompositor->ensurePersistentWorkspacesPresent();
+
+    ::Layout::Supplementary::algoMatcher()->updateWorkspaceLayouts();
+
     return 0;
 }
 
@@ -773,7 +820,19 @@ static int hlGesture(lua_State* L) {
     }
     lua_pop(L, 1);
 
-    constexpr bool                   disableInhibit = false;
+    bool disableInhibit = false;
+    lua_getfield(L, 1, "disable_inhibit");
+    if (!lua_isnil(L, -1)) {
+        CLuaConfigBool disableInhibitParser(false);
+        auto           disableInhibitErr = disableInhibitParser.parse(L);
+        if (disableInhibitErr.errorCode != PARSE_ERROR_OK) {
+            lua_pop(L, 1);
+            return luaL_error(L, "%s", std::format("hl.gesture: field \"disable_inhibit\": {}", disableInhibitErr.message).c_str());
+        }
+        disableInhibit = disableInhibitParser.parsed();
+    }
+    lua_pop(L, 1);
+
     std::expected<void, std::string> result;
 
     if (action == "dispatcher")
@@ -843,6 +902,21 @@ static int hlConfig(lua_State* L) {
                     const auto err = it->second->parse(L);
                     if (err.errorCode != PARSE_ERROR_OK)
                         self->m_errors.emplace_back(std::format("{}: error setting '{}': {}", sourceInfo, it->first, err.message));
+                    else {
+                        if (fullKey.contains("gaps_") || fullKey.starts_with("dwindle.") || fullKey.starts_with("master."))
+                            recalculateMonitorLayouts();
+
+                        if (!self->isFirstLaunch()) {
+                            g_pInputManager->setKeyboardLayout();
+                            g_pInputManager->setPointerConfigs();
+                            g_pInputManager->setTouchDeviceConfigs();
+                            g_pInputManager->setTabletConfigs();
+                            g_pCompositor->ensurePersistentWorkspacesPresent();
+                        }
+
+                        Layout::Supplementary::algoMatcher()->updateWorkspaceLayouts();
+                        g_pCompositor->updateAllWindowsAnimatedDecorationValues();
+                    }
                 }
             }
 
@@ -928,6 +1002,13 @@ static int hlDevice(lua_State* L) {
         lua_pop(L, 1);
     }
 
+    if (!self->isFirstLaunch()) {
+        g_pInputManager->setKeyboardLayout();
+        g_pInputManager->setPointerConfigs();
+        g_pInputManager->setTouchDeviceConfigs();
+        g_pInputManager->setTabletConfigs();
+    }
+
     return 0;
 }
 
@@ -985,6 +1066,17 @@ static int hlMonitor(lua_State* L) {
     }
 
     Config::monitorRuleMgr()->add(std::move(parser.rule()));
+
+    if (!self->isFirstLaunch()) {
+        Config::monitorRuleMgr()->scheduleReload();
+        Config::monitorRuleMgr()->ensureMonitorStatus();
+        Config::monitorRuleMgr()->ensureVRR();
+        recalculateMonitorLayouts();
+        g_pCompositor->ensurePersistentWorkspacesPresent();
+    }
+
+    ::Layout::Supplementary::algoMatcher()->updateWorkspaceLayouts();
+
     return 0;
 }
 
@@ -1065,21 +1157,38 @@ static int hlWindowRule(lua_State* L) {
 
         const auto* desc = Internal::findDescByName(WINDOW_RULE_EFFECT_DESCS, key);
         if (!desc) {
-            self->addError(std::format("{}: hl.window_rule: unknown field '{}'", sourceInfo, key));
+            const auto dynamicEffect = Desktop::Rule::windowEffects()->get(key);
+            if (!dynamicEffect.has_value()) {
+                self->addError(std::format("{}: hl.window_rule: unknown field '{}'", sourceInfo, key));
+                lua_pop(L, 1);
+                continue;
+            }
+
+            auto val = ruleValueToString(L);
+            if (!val)
+                self->addError(std::format("{}: hl.window_rule: field '{}': {}", sourceInfo, key, val.error()));
+            else
+                rule->addEffect(*dynamicEffect, *val);
+
             lua_pop(L, 1);
             continue;
         }
 
         auto val = UP<ILuaConfigValue>(desc->factory());
         auto err = val->parse(L);
-        if (err.errorCode != PARSE_ERROR_OK)
-            self->addError(std::format("{}: hl.window_rule: field '{}': {}", sourceInfo, key, err.message));
-        else
+        if (err.errorCode != PARSE_ERROR_OK) {
+            const bool allowLegacyString = (key == "max_size" || key == "min_size" || key == "border_color") && lua_isstring(L, -1);
+            if (allowLegacyString)
+                rule->addEffect(desc->effect, lua_tostring(L, -1));
+            else
+                self->addError(std::format("{}: hl.window_rule: field '{}': {}", sourceInfo, key, err.message));
+        } else
             rule->addEffect(desc->effect, val->toString());
 
         lua_pop(L, 1);
     }
 
+    Desktop::Rule::ruleEngine()->updateAllRules();
     Objects::CLuaWindowRule::push(L, rule);
     return 1;
 }
@@ -1159,7 +1268,19 @@ static int hlLayerRule(lua_State* L) {
 
         const auto* desc = Internal::findDescByName(LAYER_RULE_EFFECT_DESCS, key);
         if (!desc) {
-            self->addError(std::format("{}: hl.layer_rule: unknown field '{}'", sourceInfo, key));
+            const auto dynamicEffect = Desktop::Rule::layerEffects()->get(key);
+            if (!dynamicEffect.has_value()) {
+                self->addError(std::format("{}: hl.layer_rule: unknown field '{}'", sourceInfo, key));
+                lua_pop(L, 1);
+                continue;
+            }
+
+            auto val = ruleValueToString(L);
+            if (!val)
+                self->addError(std::format("{}: hl.layer_rule: field '{}': {}", sourceInfo, key, val.error()));
+            else
+                rule->addEffect(*dynamicEffect, *val);
+
             lua_pop(L, 1);
             continue;
         }
@@ -1176,6 +1297,7 @@ static int hlLayerRule(lua_State* L) {
         lua_pop(L, 1);
     }
 
+    Desktop::Rule::ruleEngine()->updateAllRules();
     Objects::CLuaLayerRule::push(L, rule);
     return 1;
 }

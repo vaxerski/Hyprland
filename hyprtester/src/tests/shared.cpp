@@ -98,7 +98,7 @@ bool Tests::killAllWindows() {
     auto pos = str.find("Window ");
     while (pos != std::string::npos) {
         auto pos2 = str.find(" -> ", pos);
-        getFromSocket("/dispatch killwindow address:0x" + str.substr(pos + 7, pos2 - pos - 7));
+        dispatchLua("hl.window.kill({ window = " + luaQuote("address:0x" + str.substr(pos + 7, pos2 - pos - 7)) + " })");
         pos = str.find("Window ", pos + 5);
     }
 
@@ -190,4 +190,32 @@ std::string Tests::getWindowAttribute(const std::string& winInfo, const std::str
     }
     auto pos2 = winInfo.find('\n', pos);
     return winInfo.substr(pos, pos2 - pos);
+}
+
+std::string Tests::luaQuote(const std::string& in) {
+    std::string out;
+    out.reserve(in.size() + 8);
+    out += '"';
+
+    for (const auto ch : in) {
+        switch (ch) {
+            case '\\': out += "\\\\"; break;
+            case '"': out += "\\\""; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default: out += ch; break;
+        }
+    }
+
+    out += '"';
+    return out;
+}
+
+std::string Tests::evalLua(const std::string& luaCode) {
+    return getFromSocket("/eval " + luaCode);
+}
+
+std::string Tests::dispatchLua(const std::string& luaDispatcherExpr) {
+    return getFromSocket("/dispatch " + luaDispatcherExpr);
 }

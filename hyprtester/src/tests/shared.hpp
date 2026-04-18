@@ -20,4 +20,7 @@ namespace Tests {
     std::string                                                execAndGet(const std::string& cmd);
     bool                                                       writeFile(const std::string& name, const std::string& contents);
     std::string                                                getWindowAttribute(const std::string& winInfo, const std::string& attr);
+    std::string                                                luaQuote(const std::string& in);
+    std::string                                                evalLua(const std::string& luaCode);
+    std::string                                                dispatchLua(const std::string& luaDispatcherExpr);
 };

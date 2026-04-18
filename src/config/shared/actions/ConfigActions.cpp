@@ -467,6 +467,30 @@ ActionResult Actions::swapInDirection(Math::eDirection dir, std::optional<PHLWIN
     return {};
 }
 
+ActionResult Actions::swapWith(PHLWINDOW other, std::optional<PHLWINDOW> w) {
+    auto window = xtract(w);
+    if (!window)
+        return std::unexpected("No target found.");
+
+    if (!other)
+        return std::unexpected("No window to swap with");
+
+    if (other == window)
+        return std::unexpected("Can't swap a window with itself");
+
+    if (window->isFullscreen() || other->isFullscreen())
+        return std::unexpected("Can't swap fullscreen window");
+
+    if (window->m_workspace != other->m_workspace)
+        return std::unexpected("Can only swap windows on the same workspace");
+
+    updateRelativeCursorCoords();
+    g_layoutManager->switchTargets(window->layoutTarget(), other->layoutTarget(), true);
+    window->warpCursor();
+
+    return {};
+}
+
 ActionResult Actions::focusCurrentOrLast() {
     const auto& HISTORY = Desktop::History::windowTracker()->fullHistory();
 
@@ -833,6 +857,27 @@ ActionResult Actions::changeGroupActive(bool forward, std::optional<PHLWINDOW> w
         return std::unexpected("Only one window in group");
 
     window->m_group->moveCurrent(forward);
+
+    return {};
+}
+
+ActionResult Actions::setGroupActive(int index, std::optional<PHLWINDOW> w) {
+    auto window = xtract(w);
+    if (!window)
+        return std::unexpected("No target found.");
+
+    if (!window->m_group)
+        return std::unexpected("Window is not in a group");
+
+    if (window->m_group->size() == 1)
+        return std::unexpected("Only one window in group");
+
+    if (index <= 0)
+        window->m_group->setCurrent(window->m_group->size() - 1);
+    else if (sc<size_t>(index) > window->m_group->size())
+        return std::unexpected("Index out of range");
+    else
+        window->m_group->setCurrent(index - 1);
 
     return {};
 }

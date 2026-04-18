@@ -24,7 +24,7 @@ static bool       test() {
     for (const auto duration : SLEEP_DURATIONS) {
         // Note: POSIX sleep does not support fractional seconds, so
         // can't sleep for less than 1 second.
-        OK(getFromSocket(std::format("/dispatch exec sleep {}", duration)));
+        OK(Tests::dispatchLua(std::format("hl.exec_cmd({})", Tests::luaQuote(std::format("sleep {}", duration)))));
 
         // Ensure that sleep is our child
         const std::string sleepPidS = Tests::execAndGet("pgrep sleep");

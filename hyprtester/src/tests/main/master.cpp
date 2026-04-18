@@ -3,11 +3,15 @@
 #include "../../hyprctlCompat.hpp"
 #include "tests.hpp"
 
-static int ret = 0;
+static int         ret = 0;
+
+static std::string setConfig(const std::string& key, const std::string& valueLuaExpr) {
+    return Tests::evalLua("hl.config({ [" + Tests::luaQuote(key) + "] = " + valueLuaExpr + " })");
+}
 
 // reqs 1 master 3 slaves
 static void testOrientations() {
-    OK(getFromSocket("/keyword master:orientation top"));
+    OK(setConfig("master.orientation", Tests::luaQuote("top")));
 
     // top
     {
@@ -19,7 +23,7 @@ static void testOrientations() {
     // cycle = top, right, bottom, center, left
 
     // right
-    OK(getFromSocket("/dispatch layoutmsg orientationnext"));
+    OK(Tests::dispatchLua("hl.layout(\"orientationnext\")"));
     {
         auto str = getFromSocket("/activewindow");
         EXPECT_CONTAINS(str, "at: 873,22");
@@ -27,7 +31,7 @@ static void testOrientations() {
     }
 
     // bottom
-    OK(getFromSocket("/dispatch layoutmsg orientationnext"));
+    OK(Tests::dispatchLua("hl.layout(\"orientationnext\")"));
     {
         auto str = getFromSocket("/activewindow");
         EXPECT_CONTAINS(str, "at: 22,495");
@@ -35,7 +39,7 @@ static void testOrientations() {
     }
 
     // center
-    OK(getFromSocket("/dispatch layoutmsg orientationnext"));
+    OK(Tests::dispatchLua("hl.layout(\"orientationnext\")"));
     {
         auto str = getFromSocket("/activewindow");
         EXPECT_CONTAINS(str, "at: 450,22");
@@ -43,7 +47,7 @@ static void testOrientations() {
     }
 
     // left
-    OK(getFromSocket("/dispatch layoutmsg orientationnext"));
+    OK(Tests::dispatchLua("hl.layout(\"orientationnext\")"));
     {
         auto str = getFromSocket("/activewindow");
         EXPECT_CONTAINS(str, "at: 22,22");
@@ -64,30 +68,30 @@ static void focusMasterPrevious() {
         }
     }
     NLog::log("{}Ensuring focus is on master before testing", Colors::YELLOW);
-    OK(getFromSocket("/dispatch layoutmsg focusmaster master"));
+    OK(Tests::dispatchLua("hl.layout(\"focusmaster master\")"));
     EXPECT_CONTAINS(getFromSocket("/activewindow"), "class: master");
 
     // test
     NLog::log("{}Testing fallback to focusmaster auto", Colors::YELLOW);
 
-    OK(getFromSocket("/dispatch layoutmsg focusmaster previous"));
+    OK(Tests::dispatchLua("hl.layout(\"focusmaster previous\")"));
     EXPECT_CONTAINS(getFromSocket("/activewindow"), "class: slave1");
 
     NLog::log("{}Testing focusing from slave to master", Colors::YELLOW);
 
-    OK(getFromSocket("/dispatch layoutmsg cyclenext noloop"));
+    OK(Tests::dispatchLua("hl.layout(\"cyclenext noloop\")"));
     EXPECT_CONTAINS(getFromSocket("/activewindow"), "class: slave2");
-    OK(getFromSocket("/dispatch layoutmsg focusmaster previous"));
+    OK(Tests::dispatchLua("hl.layout(\"focusmaster previous\")"));
     EXPECT_CONTAINS(getFromSocket("/activewindow"), "class: master");
 
     NLog::log("{}Testing focusing on previous window", Colors::YELLOW);
 
-    OK(getFromSocket("/dispatch layoutmsg focusmaster previous"));
+    OK(Tests::dispatchLua("hl.layout(\"focusmaster previous\")"));
     EXPECT_CONTAINS(getFromSocket("/activewindow"), "class: slave2");
 
     NLog::log("{}Testing focusing back to master", Colors::YELLOW);
 
-    OK(getFromSocket("/dispatch layoutmsg focusmaster previous"));
+    OK(Tests::dispatchLua("hl.layout(\"focusmaster previous\")"));
     EXPECT_CONTAINS(getFromSocket("/activewindow"), "class: master");
 
     testOrientations();
@@ -110,8 +114,8 @@ static void testFsBehavior() {
         }
     }
 
-    OK(getFromSocket("/dispatch focuswindow class:master"));
-    OK(getFromSocket("/dispatch fullscreen 1"));
+    OK(Tests::dispatchLua("hl.focus({ window = \"class:master\" })"));
+    OK(Tests::dispatchLua("hl.window.fullscreen({ mode = \"maximized\" })"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -120,7 +124,7 @@ static void testFsBehavior() {
         EXPECT_CONTAINS(str, "class: master");
     }
 
-    OK(getFromSocket("/keyword misc:on_focus_under_fullscreen 1"));
+    OK(setConfig("misc.on_focus_under_fullscreen", "1"));
 
     Tests::spawnKitty("new_master");
 
@@ -132,7 +136,7 @@ static void testFsBehavior() {
         EXPECT_CONTAINS(str, "fullscreen: 1");
     }
 
-    OK(getFromSocket("/keyword misc:on_focus_under_fullscreen 0"));
+    OK(setConfig("misc.on_focus_under_fullscreen", "0"));
 
     Tests::spawnKitty("ignored");
 
@@ -144,7 +148,7 @@ static void testFsBehavior() {
         EXPECT_CONTAINS(str, "fullscreen: 1");
     }
 
-    OK(getFromSocket("/keyword misc:on_focus_under_fullscreen 2"));
+    OK(setConfig("misc.on_focus_under_fullscreen", "2"));
 
     Tests::spawnKitty("vaxwashere");
 
@@ -162,8 +166,8 @@ static bool test() {
     NLog::log("{}Testing Master layout", Colors::GREEN);
 
     // setup
-    OK(getFromSocket("/dispatch workspace name:master"));
-    OK(getFromSocket("/keyword general:layout master"));
+    OK(Tests::dispatchLua("hl.workspace(\"name:master\")"));
+    OK(setConfig("general.layout", Tests::luaQuote("master")));
 
     // test
     NLog::log("{}Testing `focusmaster previous` layoutmsg", Colors::GREEN);
@@ -174,7 +178,7 @@ static bool test() {
 
     // clean up
     NLog::log("Cleaning up", Colors::YELLOW);
-    OK(getFromSocket("/dispatch workspace 1"));
+    OK(Tests::dispatchLua("hl.workspace(1)"));
     OK(getFromSocket("/reload"));
 
     return !ret;

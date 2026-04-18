@@ -356,6 +356,85 @@ static SDispatchResult floatingFocusOnFullscreen(std::string in) {
     return {};
 }
 
+static std::string luaArgToString(lua_State* L, int idx = 1) {
+    if (lua_isnoneornil(L, idx))
+        return "";
+
+    if (lua_isstring(L, idx))
+        return lua_tostring(L, idx);
+
+    if (lua_isboolean(L, idx))
+        return lua_toboolean(L, idx) ? "1" : "0";
+
+    if (lua_isinteger(L, idx))
+        return std::to_string(lua_tointeger(L, idx));
+
+    if (lua_isnumber(L, idx))
+        return std::to_string(lua_tonumber(L, idx));
+
+    luaL_error(L, "expected string/number/bool argument");
+    return "";
+}
+
+static int luaResult(lua_State* L, const SDispatchResult& result, const char* fnName) {
+    if (!result.success)
+        return luaL_error(L, "hl.plugin.test.%s: %s", fnName, result.error.c_str());
+
+    return 0;
+}
+
+static int luaTest(lua_State* L) {
+    return luaResult(L, test(luaArgToString(L)), "test");
+}
+
+static int luaSnapMove(lua_State* L) {
+    return luaResult(L, snapMove(luaArgToString(L)), "snapmove");
+}
+
+static int luaVkb(lua_State* L) {
+    return luaResult(L, vkb(luaArgToString(L)), "vkb");
+}
+
+static int luaAlt(lua_State* L) {
+    return luaResult(L, pressAlt(luaArgToString(L)), "alt");
+}
+
+static int luaGesture(lua_State* L) {
+    return luaResult(L, simulateGesture(luaArgToString(L)), "gesture");
+}
+
+static int luaScroll(lua_State* L) {
+    return luaResult(L, scroll(luaArgToString(L)), "scroll");
+}
+
+static int luaClick(lua_State* L) {
+    return luaResult(L, click(luaArgToString(L)), "click");
+}
+
+static int luaKeybind(lua_State* L) {
+    return luaResult(L, keybind(luaArgToString(L)), "keybind");
+}
+
+static int luaAddWindowRule(lua_State* L) {
+    return luaResult(L, addWindowRule(luaArgToString(L)), "add_window_rule");
+}
+
+static int luaCheckWindowRule(lua_State* L) {
+    return luaResult(L, checkWindowRule(luaArgToString(L)), "check_window_rule");
+}
+
+static int luaAddLayerRule(lua_State* L) {
+    return luaResult(L, addLayerRule(luaArgToString(L)), "add_layer_rule");
+}
+
+static int luaCheckLayerRule(lua_State* L) {
+    return luaResult(L, checkLayerRule(luaArgToString(L)), "check_layer_rule");
+}
+
+static int luaFloatingFocusOnFullscreen(lua_State* L) {
+    return luaResult(L, floatingFocusOnFullscreen(luaArgToString(L)), "floating_focus_on_fullscreen");
+}
+
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     PHANDLE = handle;
 
@@ -372,6 +451,20 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     HyprlandAPI::addDispatcherV2(PHANDLE, "plugin:test:add_layer_rule", ::addLayerRule);
     HyprlandAPI::addDispatcherV2(PHANDLE, "plugin:test:check_layer_rule", ::checkLayerRule);
     HyprlandAPI::addDispatcherV2(PHANDLE, "plugin:test:floating_focus_on_fullscreen", ::floatingFocusOnFullscreen);
+
+    HyprlandAPI::addLuaFunction(PHANDLE, "test", "test", ::luaTest);
+    HyprlandAPI::addLuaFunction(PHANDLE, "test", "snapmove", ::luaSnapMove);
+    HyprlandAPI::addLuaFunction(PHANDLE, "test", "vkb", ::luaVkb);
+    HyprlandAPI::addLuaFunction(PHANDLE, "test", "alt", ::luaAlt);
+    HyprlandAPI::addLuaFunction(PHANDLE, "test", "gesture", ::luaGesture);
+    HyprlandAPI::addLuaFunction(PHANDLE, "test", "scroll", ::luaScroll);
+    HyprlandAPI::addLuaFunction(PHANDLE, "test", "click", ::luaClick);
+    HyprlandAPI::addLuaFunction(PHANDLE, "test", "keybind", ::luaKeybind);
+    HyprlandAPI::addLuaFunction(PHANDLE, "test", "add_window_rule", ::luaAddWindowRule);
+    HyprlandAPI::addLuaFunction(PHANDLE, "test", "check_window_rule", ::luaCheckWindowRule);
+    HyprlandAPI::addLuaFunction(PHANDLE, "test", "add_layer_rule", ::luaAddLayerRule);
+    HyprlandAPI::addLuaFunction(PHANDLE, "test", "check_layer_rule", ::luaCheckLayerRule);
+    HyprlandAPI::addLuaFunction(PHANDLE, "test", "floating_focus_on_fullscreen", ::luaFloatingFocusOnFullscreen);
 
     customValue = makeShared<Config::Values::CIntValue>("plugin:test:my_balls_itch", "No description provided", 69);
     HyprlandAPI::addConfigValueV2(handle, customValue);

@@ -85,7 +85,7 @@ static bool startClient(SClient& client) {
         return false;
     }
 
-    if (getFromSocket(std::format("/dispatch focuswindow pid:{}", client.proc->pid())) != "ok") {
+    if (Tests::dispatchLua(std::format("hl.focus({{ window = {} }})", Tests::luaQuote(std::format("pid:{}", client.proc->pid())))) != "ok") {
         NLog::log("{}Failed to focus shortcut-inhibitor client", Colors::RED, ret);
         return false;
     }
@@ -146,27 +146,27 @@ static bool test() {
     NLog::log("{}Testing keybinds", Colors::GREEN);
     //basic keybind test
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword bind SUPER,Y,exec,touch " + flagFile), "ok");
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    EXPECT(Tests::evalLua("hl.bind(\"SUPER + Y\", hl.exec_cmd(" + Tests::luaQuote("touch " + flagFile) + "))"), "ok");
+    OK(Tests::evalLua("hl.plugin.test.keybind(\"1,7,29\")"));
     EXPECT(attemptCheckFlag(20, 50), false);
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    OK(Tests::evalLua("hl.plugin.test.keybind(\"0,0,29\")"));
+    EXPECT(Tests::evalLua("hl.unbind(\"SUPER\", \"Y\")"), "ok");
 
     //keybind bypass flag test
     EXPECT(checkFlag(), false);
-    EXPECT(getFromSocket("/keyword bindp SUPER,Y,exec,touch " + flagFile), "ok");
-    OK(getFromSocket("/dispatch plugin:test:keybind 1,7,29"));
+    EXPECT(Tests::evalLua("hl.bind(\"SUPER + Y\", hl.exec_cmd(" + Tests::luaQuote("touch " + flagFile) + "), { dont_inhibit = true })"), "ok");
+    OK(Tests::evalLua("hl.plugin.test.keybind(\"1,7,29\")"));
     EXPECT(attemptCheckFlag(20, 50), true);
-    OK(getFromSocket("/dispatch plugin:test:keybind 0,0,29"));
-    EXPECT(getFromSocket("/keyword unbind SUPER,Y"), "ok");
+    OK(Tests::evalLua("hl.plugin.test.keybind(\"0,0,29\")"));
+    EXPECT(Tests::evalLua("hl.unbind(\"SUPER\", \"Y\")"), "ok");
 
     NLog::log("{}Testing gestures", Colors::GREEN);
     //basic gesture test
-    OK(getFromSocket("/dispatch plugin:test:gesture right,3"));
+    OK(Tests::evalLua("hl.plugin.test.gesture(\"right,3\")"));
     EXPECT_NOT_CONTAINS(getFromSocket("/activewindow"), "floating: 1");
 
     //gesture bypass flag test
-    OK(getFromSocket("/dispatch plugin:test:gesture right,2"));
+    OK(Tests::evalLua("hl.plugin.test.gesture(\"right,2\")"));
     EXPECT_CONTAINS(getFromSocket("/activewindow"), "floating: 1");
 
     stopClient(client);

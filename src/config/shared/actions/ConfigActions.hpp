@@ -34,6 +34,7 @@ namespace Config::Actions {
     ActionResult focus(PHLWINDOW window);
     ActionResult moveInDirection(Math::eDirection dir, std::optional<PHLWINDOW> window = std::nullopt /* Active */);
     ActionResult swapInDirection(Math::eDirection dir, std::optional<PHLWINDOW> window = std::nullopt /* Active */);
+    ActionResult swapWith(PHLWINDOW other, std::optional<PHLWINDOW> window = std::nullopt /* Active */);
     ActionResult focusCurrentOrLast();
     ActionResult focusUrgentOrLast();
     ActionResult center(std::optional<PHLWINDOW> window = std::nullopt /* Active */);
@@ -51,6 +52,7 @@ namespace Config::Actions {
 
     ActionResult toggleGroup(std::optional<PHLWINDOW> window = std::nullopt /* Active */);
     ActionResult changeGroupActive(bool forward = true, std::optional<PHLWINDOW> window = std::nullopt /* Active */);
+    ActionResult setGroupActive(int index, std::optional<PHLWINDOW> window = std::nullopt /* Active */);
 
     ActionResult changeWorkspace(PHLWORKSPACE ws);
     ActionResult changeWorkspace(const std::string& ws);

@@ -16,18 +16,18 @@ static bool spawnFloatingKitty() {
         NLog::log("{}Error: kitty did not spawn", Colors::RED);
         return false;
     }
-    OK(getFromSocket("/dispatch setfloating active"));
-    OK(getFromSocket("/dispatch resizeactive exact 100 100"));
+    OK(Tests::dispatchLua("hl.window.float({ action = \"enable\", window = \"activewindow\" })"));
+    OK(Tests::dispatchLua("hl.window.resize({ x = 100, y = 100 })"));
     return true;
 }
 
-static void expectSocket(const std::string& CMD) {
-    if (const auto RESULT = getFromSocket(CMD); RESULT != "ok") {
-        NLog::log("{}Failed: {}getFromSocket({}), expected ok, got {}. Source: {}@{}.", Colors::RED, Colors::RESET, CMD, RESULT, __FILE__, __LINE__);
+static void expectOk(const std::string& action, const std::string& result) {
+    if (result != "ok") {
+        NLog::log("{}Failed: {}{}, expected ok, got {}. Source: {}@{}.", Colors::RED, Colors::RESET, action, result, __FILE__, __LINE__);
         ret = 1;
         TESTS_FAILED++;
     } else {
-        NLog::log("{}Passed: {}getFromSocket({}). Got ok", Colors::GREEN, Colors::RESET, CMD);
+        NLog::log("{}Passed: {}{}. Got ok", Colors::GREEN, Colors::RESET, action);
         TESTS_PASSED++;
     }
 }
@@ -40,8 +40,8 @@ static void expectSnapMove(const Vector2D FROM, const Vector2D* TO) {
     else
         NLog::log("{}Expecting no snap when window is moved to ({},{})", Colors::YELLOW, A.x, A.y);
 
-    expectSocket(std::format("/dispatch moveactive exact {} {}", A.x, A.y));
-    expectSocket("/dispatch plugin:test:snapmove");
+    expectOk(std::format("hl.window.move({{ x = {}, y = {} }})", A.x, A.y), Tests::dispatchLua(std::format("hl.window.move({{ x = {}, y = {} }})", A.x, A.y)));
+    expectOk("hl.plugin.test.snapmove()", Tests::evalLua("hl.plugin.test.snapmove()"));
     EXPECT_CONTAINS(getFromSocket("/activewindow"), std::format("at: {},{}", B.x, B.y));
 }
 
@@ -114,13 +114,13 @@ static bool test() {
 
     // move to monitor HEADLESS-2
     NLog::log("{}Moving to monitor HEADLESS-2", Colors::YELLOW);
-    OK(getFromSocket("/dispatch focusmonitor HEADLESS-2"));
+    OK(Tests::dispatchLua("hl.focus({ monitor = \"HEADLESS-2\" })"));
     NLog::log("{}Adding reserved monitor area to HEADLESS-2", Colors::YELLOW);
-    OK(getFromSocket("/keyword monitor HEADLESS-2,addreserved,200,200,200,200"));
+    OK(Tests::evalLua("hl.monitor({ output = \"HEADLESS-2\", reserved = { top = 200, right = 200, bottom = 200, left = 200 } })"));
 
     // test on workspace "snap"
     NLog::log("{}Dispatching workspace `snap`", Colors::YELLOW);
-    OK(getFromSocket("/dispatch workspace name:snap"));
+    OK(Tests::dispatchLua("hl.workspace(\"name:snap\")"));
 
     // spawn a kitty terminal and move to (500,500)
     NLog::log("{}Spawning kittyProcA", Colors::YELLOW);
@@ -131,7 +131,7 @@ static bool test() {
     EXPECT(Tests::windowCount(), 1);
 
     NLog::log("{}Move the kitty window to (500,500)", Colors::YELLOW);
-    OK(getFromSocket("/dispatch moveactive exact 500 500"));
+    OK(Tests::dispatchLua("hl.window.move({ x = 500, y = 500 })"));
 
     // spawn a second kitty terminal
     NLog::log("{}Spawning kittyProcB", Colors::YELLOW);
@@ -146,17 +146,17 @@ static bool test() {
     testMonitorSnap(false, false);
 
     NLog::log("\n{}Turning on respect_gaps", Colors::YELLOW);
-    OK(getFromSocket("/keyword general:snap:respect_gaps true"));
+    OK(Tests::evalLua("hl.config({ [\"general.snap.respect_gaps\"] = true })"));
     testWindowSnap(true);
     testMonitorSnap(true, false);
 
     NLog::log("\n{}Turning on border_overlap", Colors::YELLOW);
-    OK(getFromSocket("/keyword general:snap:respect_gaps false"));
-    OK(getFromSocket("/keyword general:snap:border_overlap true"));
+    OK(Tests::evalLua("hl.config({ [\"general.snap.respect_gaps\"] = false })"));
+    OK(Tests::evalLua("hl.config({ [\"general.snap.border_overlap\"] = true })"));
     testMonitorSnap(false, true);
 
     NLog::log("\n{}Turning on both border_overlap and respect_gaps", Colors::YELLOW);
-    OK(getFromSocket("/keyword general:snap:respect_gaps true"));
+    OK(Tests::evalLua("hl.config({ [\"general.snap.respect_gaps\"] = true })"));
     testMonitorSnap(true, true);
 
     // kill all
@@ -168,7 +168,7 @@ static bool test() {
 
     NLog::log("{}Reloading the config", Colors::YELLOW);
     OK(getFromSocket("/reload"));
-    OK(getFromSocket("/dispatch workspace 1"));
+    OK(Tests::dispatchLua("hl.workspace(1)"));
 
     return !ret;
 }

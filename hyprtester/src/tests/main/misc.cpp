@@ -4,6 +4,7 @@
 #include <print>
 #include <thread>
 #include <chrono>
+#include <format>
 #include <hyprutils/os/Process.hpp>
 #include <hyprutils/memory/WeakPtr.hpp>
 #include <csignal>
@@ -17,6 +18,22 @@ using namespace Hyprutils::Memory;
 
 #define UP CUniquePointer
 #define SP CSharedPointer
+
+static std::string setConfig(const std::string& key, const std::string& valueLuaExpr) {
+    return Tests::evalLua("hl.config({ [" + Tests::luaQuote(key) + "] = " + valueLuaExpr + " })");
+}
+
+static std::string setFullscreenMode(const std::string& mode, const std::string& action = "toggle") {
+    return Tests::dispatchLua("hl.window.fullscreen({ mode = " + Tests::luaQuote(mode) + ", action = " + Tests::luaQuote(action) + " })");
+}
+
+static std::string setFullscreenState(const int internal, const int client) {
+    return Tests::dispatchLua("hl.window.fullscreen_state({ internal = " + std::to_string(internal) + ", client = " + std::to_string(client) + " })");
+}
+
+static std::string toggleFullscreenState(const int internal, const int client) {
+    return Tests::dispatchLua("hl.window.fullscreen_state({ internal = " + std::to_string(internal) + ", client = " + std::to_string(client) + ", action = \"toggle\" })");
+}
 
 // Uncomment once test vm can run hyprland-dialog
 // static void testAnrDialogs() {
@@ -138,8 +155,8 @@ static bool test() {
 
     NLog::log("{}Testing close_special_on_empty", Colors::YELLOW);
 
-    OK(getFromSocket("/keyword misc:close_special_on_empty false"));
-    OK(getFromSocket("/dispatch workspace special:test"));
+    OK(setConfig("misc.close_special_on_empty", "false"));
+    OK(Tests::dispatchLua("hl.workspace({ special = \"test\" })"));
 
     Tests::spawnKitty();
 
@@ -157,7 +174,7 @@ static bool test() {
 
     Tests::spawnKitty();
 
-    OK(getFromSocket("/keyword misc:close_special_on_empty true"));
+    OK(setConfig("misc.close_special_on_empty", "true"));
 
     Tests::killAllWindows();
 
@@ -168,11 +185,11 @@ static bool test() {
 
     NLog::log("{}Testing new_window_takes_over_fullscreen", Colors::YELLOW);
 
-    OK(getFromSocket("/keyword misc:on_focus_under_fullscreen 0"));
+    OK(setConfig("misc.on_focus_under_fullscreen", "0"));
 
     Tests::spawnKitty("kitty_A");
 
-    OK(getFromSocket("/dispatch fullscreen 0"));
+    OK(setFullscreenMode("fullscreen"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -190,7 +207,7 @@ static bool test() {
         EXPECT_CONTAINS(str, "kitty_A");
     }
 
-    OK(getFromSocket("/dispatch focuswindow class:kitty_B"));
+    OK(Tests::dispatchLua("hl.focus({ window = \"class:kitty_B\" })"));
 
     {
         // should be ignored as per focus_under_fullscreen 0
@@ -200,7 +217,7 @@ static bool test() {
         EXPECT_CONTAINS(str, "kitty_A");
     }
 
-    OK(getFromSocket("/keyword misc:on_focus_under_fullscreen 1"));
+    OK(setConfig("misc.on_focus_under_fullscreen", "1"));
 
     Tests::spawnKitty("kitty_C");
 
@@ -211,7 +228,7 @@ static bool test() {
         EXPECT_CONTAINS(str, "kitty_C");
     }
 
-    OK(getFromSocket("/keyword misc:on_focus_under_fullscreen 2"));
+    OK(setConfig("misc.on_focus_under_fullscreen", "2"));
 
     Tests::spawnKitty("kitty_D");
 
@@ -222,18 +239,18 @@ static bool test() {
         EXPECT_CONTAINS(str, "kitty_D");
     }
 
-    OK(getFromSocket("/keyword misc:on_focus_under_fullscreen 0"));
+    OK(setConfig("misc.on_focus_under_fullscreen", "0"));
 
     Tests::killAllWindows();
 
     NLog::log("{}Testing exit_window_retains_fullscreen", Colors::YELLOW);
 
-    OK(getFromSocket("/keyword misc:exit_window_retains_fullscreen false"));
+    OK(setConfig("misc.exit_window_retains_fullscreen", "false"));
 
     Tests::spawnKitty("kitty_A");
     Tests::spawnKitty("kitty_B");
 
-    OK(getFromSocket("/dispatch fullscreen 0"));
+    OK(setFullscreenMode("fullscreen"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -241,7 +258,7 @@ static bool test() {
         EXPECT_CONTAINS(str, "fullscreenClient: 2");
     }
 
-    OK(getFromSocket("/dispatch killwindow activewindow"));
+    OK(Tests::dispatchLua("hl.window.kill({ window = \"activewindow\" })"));
     Tests::waitUntilWindowsN(1);
 
     {
@@ -251,10 +268,10 @@ static bool test() {
     }
 
     Tests::spawnKitty("kitty_B");
-    OK(getFromSocket("/dispatch fullscreen 0"));
-    OK(getFromSocket("/keyword misc:exit_window_retains_fullscreen true"));
+    OK(setFullscreenMode("fullscreen"));
+    OK(setConfig("misc.exit_window_retains_fullscreen", "true"));
 
-    OK(getFromSocket("/dispatch killwindow activewindow"));
+    OK(Tests::dispatchLua("hl.window.kill({ window = \"activewindow\" })"));
     Tests::waitUntilWindowsN(1);
 
     {
@@ -270,8 +287,8 @@ static bool test() {
     Tests::spawnKitty("kitty_A");
     Tests::spawnKitty("kitty_B");
 
-    OK(getFromSocket("/dispatch focuswindow class:kitty_A"));
-    OK(getFromSocket("/dispatch fullscreen 0 set"));
+    OK(Tests::dispatchLua("hl.focus({ window = \"class:kitty_A\" })"));
+    OK(setFullscreenMode("fullscreen", "set"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -279,7 +296,7 @@ static bool test() {
         EXPECT_CONTAINS(str, "fullscreenClient: 2");
     }
 
-    OK(getFromSocket("/dispatch fullscreen 0 unset"));
+    OK(setFullscreenMode("fullscreen", "unset"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -287,7 +304,7 @@ static bool test() {
         EXPECT_CONTAINS(str, "fullscreenClient: 0");
     }
 
-    OK(getFromSocket("/dispatch fullscreen 1 toggle"));
+    OK(setFullscreenMode("maximized", "toggle"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -295,7 +312,7 @@ static bool test() {
         EXPECT_CONTAINS(str, "fullscreenClient: 1");
     }
 
-    OK(getFromSocket("/dispatch fullscreen 1 toggle"));
+    OK(setFullscreenMode("maximized", "toggle"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -303,7 +320,7 @@ static bool test() {
         EXPECT_CONTAINS(str, "fullscreenClient: 0");
     }
 
-    OK(getFromSocket("/dispatch fullscreenstate 3 3 set"));
+    OK(setFullscreenState(3, 3));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -311,7 +328,7 @@ static bool test() {
         EXPECT_CONTAINS(str, "fullscreenClient: 3");
     }
 
-    OK(getFromSocket("/dispatch fullscreenstate 3 3 set"));
+    OK(setFullscreenState(3, 3));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -319,7 +336,7 @@ static bool test() {
         EXPECT_CONTAINS(str, "fullscreenClient: 3");
     }
 
-    OK(getFromSocket("/dispatch fullscreenstate 2 2 set"));
+    OK(setFullscreenState(2, 2));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -327,7 +344,7 @@ static bool test() {
         EXPECT_CONTAINS(str, "fullscreenClient: 2");
     }
 
-    OK(getFromSocket("/dispatch fullscreenstate 2 2 set"));
+    OK(setFullscreenState(2, 2));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -335,7 +352,7 @@ static bool test() {
         EXPECT_CONTAINS(str, "fullscreenClient: 2");
     }
 
-    OK(getFromSocket("/dispatch fullscreenstate 2 2 toggle"));
+    OK(toggleFullscreenState(2, 2));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -343,7 +360,7 @@ static bool test() {
         EXPECT_CONTAINS(str, "fullscreenClient: 0");
     }
 
-    OK(getFromSocket("/dispatch fullscreenstate 2 2 toggle"));
+    OK(toggleFullscreenState(2, 2));
 
     {
         auto str = getFromSocket("/activewindow");

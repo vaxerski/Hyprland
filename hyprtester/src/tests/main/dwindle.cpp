@@ -3,7 +3,11 @@
 #include "../../hyprctlCompat.hpp"
 #include "tests.hpp"
 
-static int  ret = 0;
+static int         ret = 0;
+
+static std::string setConfig(const std::string& key, const std::string& valueLuaExpr) {
+    return Tests::evalLua("hl.config({ [" + Tests::luaQuote(key) + "] = " + valueLuaExpr + " })");
+}
 
 static void testFloatClamp() {
     for (auto const& win : {"a", "b", "c"}) {
@@ -15,13 +19,13 @@ static void testFloatClamp() {
         }
     }
 
-    OK(getFromSocket("/keyword dwindle:force_split 2"));
-    OK(getFromSocket("/keyword monitor HEADLESS-2, addreserved, 0, 20, 0, 20"));
-    OK(getFromSocket("/dispatch focuswindow class:c"));
-    OK(getFromSocket("/dispatch setfloating class:c"));
-    OK(getFromSocket("/dispatch resizewindowpixel exact 1200 900,class:c"));
-    OK(getFromSocket("/dispatch settiled class:c"));
-    OK(getFromSocket("/dispatch setfloating class:c"));
+    OK(setConfig("dwindle.force_split", "2"));
+    OK(Tests::evalLua("hl.monitor({ output = \"HEADLESS-2\", reserved = { top = 0, right = 20, bottom = 0, left = 20 } })"));
+    OK(Tests::dispatchLua("hl.focus({ window = \"class:c\" })"));
+    OK(Tests::dispatchLua("hl.window.float({ action = \"enable\", window = \"class:c\" })"));
+    OK(Tests::dispatchLua("hl.window.resize({ x = 1200, y = 900, window = \"class:c\" })"));
+    OK(Tests::dispatchLua("hl.window.float({ action = \"disable\", window = \"class:c\" })"));
+    OK(Tests::dispatchLua("hl.window.float({ action = \"enable\", window = \"class:c\" })"));
 
     {
         auto str = getFromSocket("/clients");
@@ -29,7 +33,7 @@ static void testFloatClamp() {
         EXPECT_CONTAINS(str, "size: 1200,900");
     }
 
-    OK(getFromSocket("/keyword dwindle:force_split 0"));
+    OK(setConfig("dwindle.force_split", "0"));
 
     // clean up
     NLog::log("{}Killing all windows", Colors::YELLOW);
@@ -52,7 +56,7 @@ static void test13349() {
         }
     }
 
-    OK(getFromSocket("/dispatch focuswindow class:c"));
+    OK(Tests::dispatchLua("hl.focus({ window = \"class:c\" })"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -60,7 +64,7 @@ static void test13349() {
         EXPECT_CONTAINS(str, "size: 931,511");
     }
 
-    OK(getFromSocket("/dispatch movewindow l"));
+    OK(Tests::dispatchLua("hl.window.move({ direction = \"l\" })"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -68,7 +72,7 @@ static void test13349() {
         EXPECT_CONTAINS(str, "size: 931,511");
     }
 
-    OK(getFromSocket("/dispatch movewindow r"));
+    OK(Tests::dispatchLua("hl.window.move({ direction = \"r\" })"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -87,13 +91,13 @@ static void testSplit() {
     Tests::spawnKitty("a");
 
     // these must not crash
-    EXPECT_NOT(getFromSocket("/dispatch layoutmsg swapsplit"), "ok");
-    EXPECT_NOT(getFromSocket("/dispatch layoutmsg splitratio 1 exact"), "ok");
+    EXPECT_NOT(Tests::dispatchLua("hl.layout(\"swapsplit\")"), "ok");
+    EXPECT_NOT(Tests::dispatchLua("hl.layout(\"splitratio 1 exact\")"), "ok");
 
     Tests::spawnKitty("b");
 
-    OK(getFromSocket("/dispatch focuswindow class:a"));
-    OK(getFromSocket("/dispatch layoutmsg splitratio -0.2"));
+    OK(Tests::dispatchLua("hl.focus({ window = \"class:a\" })"));
+    OK(Tests::dispatchLua("hl.layout(\"splitratio -0.2\")"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -101,7 +105,7 @@ static void testSplit() {
         EXPECT_CONTAINS(str, "size: 743,1036");
     }
 
-    OK(getFromSocket("/dispatch layoutmsg splitratio 1.6 exact"));
+    OK(Tests::dispatchLua("hl.layout(\"splitratio 1.6 exact\")"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -109,13 +113,13 @@ static void testSplit() {
         EXPECT_CONTAINS(str, "size: 1495,1036");
     }
 
-    EXPECT_NOT(getFromSocket("/dispatch layoutmsg splitratio fhne exact"), "ok");
-    EXPECT_NOT(getFromSocket("/dispatch layoutmsg splitratio exact"), "ok");
-    EXPECT_NOT(getFromSocket("/dispatch layoutmsg splitratio -....9"), "ok");
-    EXPECT_NOT(getFromSocket("/dispatch layoutmsg splitratio ..9"), "ok");
-    EXPECT_NOT(getFromSocket("/dispatch layoutmsg splitratio"), "ok");
+    EXPECT_NOT(Tests::dispatchLua("hl.layout(\"splitratio fhne exact\")"), "ok");
+    EXPECT_NOT(Tests::dispatchLua("hl.layout(\"splitratio exact\")"), "ok");
+    EXPECT_NOT(Tests::dispatchLua("hl.layout(\"splitratio -....9\")"), "ok");
+    EXPECT_NOT(Tests::dispatchLua("hl.layout(\"splitratio ..9\")"), "ok");
+    EXPECT_NOT(Tests::dispatchLua("hl.layout(\"splitratio\")"), "ok");
 
-    OK(getFromSocket("/dispatch layoutmsg togglesplit"));
+    OK(Tests::dispatchLua("hl.layout(\"togglesplit\")"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -123,7 +127,7 @@ static void testSplit() {
         EXPECT_CONTAINS(str, "size: 1876,823");
     }
 
-    OK(getFromSocket("/dispatch layoutmsg swapsplit"));
+    OK(Tests::dispatchLua("hl.layout(\"swapsplit\")"));
 
     {
         auto str = getFromSocket("/activewindow");
@@ -136,9 +140,9 @@ static void testSplit() {
 }
 
 static void testRotatesplit() {
-    OK(getFromSocket("r/keyword general:gaps_in 0"));
-    OK(getFromSocket("r/keyword general:gaps_out 0"));
-    OK(getFromSocket("r/keyword general:border_size 0"));
+    OK(setConfig("general.gaps_in", "0"));
+    OK(setConfig("general.gaps_out", "0"));
+    OK(setConfig("general.border_size", "0"));
 
     for (auto const& win : {"a", "b"}) {
         if (!Tests::spawnKitty(win)) {
@@ -156,28 +160,28 @@ static void testRotatesplit() {
     }
 
     // test 4 repeated rotations by 90 degrees
-    OK(getFromSocket("/dispatch layoutmsg rotatesplit"));
+    OK(Tests::dispatchLua("hl.layout(\"rotatesplit\")"));
     {
         auto str = getFromSocket("/clients");
         EXPECT_CONTAINS(str, "at: 0,0");
         EXPECT_CONTAINS(str, "size: 1920,540");
     }
 
-    OK(getFromSocket("/dispatch layoutmsg rotatesplit"));
+    OK(Tests::dispatchLua("hl.layout(\"rotatesplit\")"));
     {
         auto str = getFromSocket("/clients");
         EXPECT_CONTAINS(str, "at: 960,0");
         EXPECT_CONTAINS(str, "size: 960,1080");
     }
 
-    OK(getFromSocket("/dispatch layoutmsg rotatesplit"));
+    OK(Tests::dispatchLua("hl.layout(\"rotatesplit\")"));
     {
         auto str = getFromSocket("/clients");
         EXPECT_CONTAINS(str, "at: 0,540");
         EXPECT_CONTAINS(str, "size: 1920,540");
     }
 
-    OK(getFromSocket("/dispatch layoutmsg rotatesplit"));
+    OK(Tests::dispatchLua("hl.layout(\"rotatesplit\")"));
     {
         auto str = getFromSocket("/clients");
         EXPECT_CONTAINS(str, "at: 0,0");
@@ -185,21 +189,21 @@ static void testRotatesplit() {
     }
 
     // test different angles
-    OK(getFromSocket("/dispatch layoutmsg rotatesplit 180"));
+    OK(Tests::dispatchLua("hl.layout(\"rotatesplit 180\")"));
     {
         auto str = getFromSocket("/clients");
         EXPECT_CONTAINS(str, "at: 960,0");
         EXPECT_CONTAINS(str, "size: 960,1080");
     }
 
-    OK(getFromSocket("/dispatch layoutmsg rotatesplit 270"));
+    OK(Tests::dispatchLua("hl.layout(\"rotatesplit 270\")"));
     {
         auto str = getFromSocket("/clients");
         EXPECT_CONTAINS(str, "at: 0,540");
         EXPECT_CONTAINS(str, "size: 1920,540");
     }
 
-    OK(getFromSocket("/dispatch layoutmsg rotatesplit 360"));
+    OK(Tests::dispatchLua("hl.layout(\"rotatesplit 360\")"));
     {
         auto str = getFromSocket("/clients");
         EXPECT_CONTAINS(str, "at: 0,0");
@@ -207,14 +211,14 @@ static void testRotatesplit() {
     }
 
     // test negative angles
-    OK(getFromSocket("/dispatch layoutmsg rotatesplit -90"));
+    OK(Tests::dispatchLua("hl.layout(\"rotatesplit -90\")"));
     {
         auto str = getFromSocket("/clients");
         EXPECT_CONTAINS(str, "at: 0,0");
         EXPECT_CONTAINS(str, "size: 960,1080");
     }
 
-    OK(getFromSocket("/dispatch layoutmsg rotatesplit -180"));
+    OK(Tests::dispatchLua("hl.layout(\"rotatesplit -180\")"));
     {
         auto str = getFromSocket("/clients");
         EXPECT_CONTAINS(str, "at: 960,0");
@@ -228,16 +232,16 @@ static void testRotatesplit() {
 }
 
 static void testForceSplitOnMoveToWorkspace() {
-    OK(getFromSocket("/dispatch workspace 2"));
+    OK(Tests::dispatchLua("hl.workspace(2)"));
     EXPECT(!!Tests::spawnKitty("kitty"), true);
 
-    OK(getFromSocket("/dispatch workspace 1"));
+    OK(Tests::dispatchLua("hl.workspace(1)"));
     EXPECT(!!Tests::spawnKitty("kitty"), true);
     std::string posBefore = Tests::getWindowAttribute(getFromSocket("/activewindow"), "at:");
 
-    OK(getFromSocket("/keyword dwindle:force_split 2"));
-    OK(getFromSocket("/dispatch movecursortocorner 3")); // top left
-    OK(getFromSocket("/dispatch movetoworkspace 2"));
+    OK(setConfig("dwindle.force_split", "2"));
+    OK(Tests::dispatchLua("hl.cursor.move_to_corner({ corner = 3 })")); // top left
+    OK(Tests::dispatchLua("hl.window.move({ workspace = \"2\" })"));
 
     // Should be moved to the right, so the position should change
     std::string activeWindow = getFromSocket("/activewindow");
@@ -270,7 +274,7 @@ static bool test() {
 
     // clean up
     NLog::log("Cleaning up", Colors::YELLOW);
-    getFromSocket("/dispatch workspace 1");
+    Tests::dispatchLua("hl.workspace(1)");
     OK(getFromSocket("/reload"));
 
     return !ret;
