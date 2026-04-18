@@ -58,7 +58,7 @@ static void testOrientations() {
 static void focusMasterPrevious() {
     // setup
     NLog::log("{}Spawning 1 master and 3 slave windows", Colors::YELLOW);
-    // order of windows set according to new_status = master (set in test.conf)
+    // order of windows set according to new_status = master (set in test.lua)
     for (auto const& win : {"slave1", "slave2", "slave3", "master"}) {
         if (!Tests::spawnKitty(win)) {
             NLog::log("{}Failed to spawn kitty with win class `{}`", Colors::RED, win);
