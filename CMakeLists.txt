@@ -269,7 +269,7 @@ pkg_check_modules(
   re2
   muparser
   lcms2
-  lua)
+  lua55)
 
 find_package(hyprwayland-scanner 0.3.10 REQUIRED)
 
