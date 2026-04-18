@@ -1,6 +1,7 @@
 #include "LuaConfigVec2.hpp"
 
 #include <sstream>
+#include <algorithm>
 
 using namespace Config;
 using namespace Config::Lua;
