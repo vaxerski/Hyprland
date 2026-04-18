@@ -1010,7 +1010,7 @@ std::unordered_map<std::string, std::string> CWindow::getEnv() {
         needle += 512;
     }
 #elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
-    int    mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_ENV, static_cast<int>(PID)};
+    int    mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_ENV, sc<int>(PID)};
     size_t len    = 0;
 
     if (sysctl(mib, 4, nullptr, &len, nullptr, 0) < 0 || len == 0)

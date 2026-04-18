@@ -13,15 +13,15 @@ static constexpr const char* MT = "HL.Workspace";
 
 //
 static int workspaceEq(lua_State* L) {
-    const auto* lhs = static_cast<PHLWORKSPACEREF*>(luaL_checkudata(L, 1, MT));
-    const auto* rhs = static_cast<PHLWORKSPACEREF*>(luaL_checkudata(L, 2, MT));
+    const auto* lhs = sc<PHLWORKSPACEREF*>(luaL_checkudata(L, 1, MT));
+    const auto* rhs = sc<PHLWORKSPACEREF*>(luaL_checkudata(L, 2, MT));
 
     lua_pushboolean(L, lhs->lock() == rhs->lock());
     return 1;
 }
 
 static int workspaceToString(lua_State* L) {
-    const auto* ref = static_cast<PHLWORKSPACEREF*>(luaL_checkudata(L, 1, MT));
+    const auto* ref = sc<PHLWORKSPACEREF*>(luaL_checkudata(L, 1, MT));
     const auto  ws  = ref->lock();
 
     if (!ws || ws->inert())
@@ -33,7 +33,7 @@ static int workspaceToString(lua_State* L) {
 }
 
 static int workspaceIndex(lua_State* L) {
-    auto*      ref = static_cast<PHLWORKSPACEREF*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<PHLWORKSPACEREF*>(luaL_checkudata(L, 1, MT));
     const auto ws  = ref->lock();
     if (!ws || ws->inert()) {
         Log::logger->log(Log::DEBUG, "[lua] Tried to access an expired object");
@@ -44,7 +44,7 @@ static int workspaceIndex(lua_State* L) {
     const std::string_view key = luaL_checkstring(L, 2);
 
     if (key == "id")
-        lua_pushinteger(L, static_cast<lua_Integer>(ws->m_id));
+        lua_pushinteger(L, sc<lua_Integer>(ws->m_id));
     else if (key == "name")
         lua_pushstring(L, ws->m_name.c_str());
     else if (key == "monitor") {
@@ -54,7 +54,7 @@ static int workspaceIndex(lua_State* L) {
         else
             lua_pushnil(L);
     } else if (key == "windows")
-        lua_pushinteger(L, static_cast<lua_Integer>(ws->getWindows()));
+        lua_pushinteger(L, sc<lua_Integer>(ws->getWindows()));
     else if (key == "visible")
         lua_pushboolean(L, ws->isVisible());
     else if (key == "special")
@@ -65,7 +65,7 @@ static int workspaceIndex(lua_State* L) {
     } else if (key == "has_urgent")
         lua_pushboolean(L, ws->hasUrgentWindow());
     else if (key == "fullscreen_mode")
-        lua_pushinteger(L, static_cast<lua_Integer>(ws->m_fullscreenMode));
+        lua_pushinteger(L, sc<lua_Integer>(ws->m_fullscreenMode));
     else if (key == "has_fullscreen")
         lua_pushboolean(L, ws->m_hasFullscreenWindow);
     else if (key == "is_persistent")

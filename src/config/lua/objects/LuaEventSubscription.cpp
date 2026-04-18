@@ -16,15 +16,15 @@ namespace {
 }
 
 static int eventSubscriptionEq(lua_State* L) {
-    const auto* lhs = static_cast<SEventSubscriptionRef*>(luaL_checkudata(L, 1, MT));
-    const auto* rhs = static_cast<SEventSubscriptionRef*>(luaL_checkudata(L, 2, MT));
+    const auto* lhs = sc<SEventSubscriptionRef*>(luaL_checkudata(L, 1, MT));
+    const auto* rhs = sc<SEventSubscriptionRef*>(luaL_checkudata(L, 2, MT));
 
     lua_pushboolean(L, lhs->handler == rhs->handler && lhs->handle == rhs->handle);
     return 1;
 }
 
 static int eventSubscriptionToString(lua_State* L) {
-    const auto* ref = static_cast<SEventSubscriptionRef*>(luaL_checkudata(L, 1, MT));
+    const auto* ref = sc<SEventSubscriptionRef*>(luaL_checkudata(L, 1, MT));
 
     const auto  str = std::format("HL.EventSubscription({},{})", ref->handle, ref->active ? "active" : "inactive");
     lua_pushstring(L, str.c_str());
@@ -32,7 +32,7 @@ static int eventSubscriptionToString(lua_State* L) {
 }
 
 static int eventSubscriptionRemove(lua_State* L) {
-    auto* ref = static_cast<SEventSubscriptionRef*>(luaL_checkudata(L, 1, MT));
+    auto* ref = sc<SEventSubscriptionRef*>(luaL_checkudata(L, 1, MT));
 
     if (!ref->active || !ref->handler)
         return 0;
@@ -43,7 +43,7 @@ static int eventSubscriptionRemove(lua_State* L) {
 }
 
 static int eventSubscriptionIsActive(lua_State* L) {
-    auto* ref = static_cast<SEventSubscriptionRef*>(luaL_checkudata(L, 1, MT));
+    auto* ref = sc<SEventSubscriptionRef*>(luaL_checkudata(L, 1, MT));
 
     lua_pushboolean(L, ref->active);
     return 1;

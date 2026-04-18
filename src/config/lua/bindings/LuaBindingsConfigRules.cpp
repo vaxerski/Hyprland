@@ -77,99 +77,99 @@ namespace {
 
     inline const SMonitorFieldDesc MONITOR_FIELDS[] = {
         {"mode", []() -> ILuaConfigValue* { return new CLuaConfigString("preferred"); },
-         [](ILuaConfigValue* v, CMonitorRuleParser& p) { return p.parseMode(*static_cast<const Config::STRING*>(v->data())); }},
+         [](ILuaConfigValue* v, CMonitorRuleParser& p) { return p.parseMode(*sc<const Config::STRING*>(v->data())); }},
         {"position", []() -> ILuaConfigValue* { return new CLuaConfigString("auto"); },
-         [](ILuaConfigValue* v, CMonitorRuleParser& p) { return p.parsePosition(*static_cast<const Config::STRING*>(v->data())); }},
+         [](ILuaConfigValue* v, CMonitorRuleParser& p) { return p.parsePosition(*sc<const Config::STRING*>(v->data())); }},
         {"scale", []() -> ILuaConfigValue* { return new CLuaConfigString("auto"); },
-         [](ILuaConfigValue* v, CMonitorRuleParser& p) { return p.parseScale(*static_cast<const Config::STRING*>(v->data())); }},
+         [](ILuaConfigValue* v, CMonitorRuleParser& p) { return p.parseScale(*sc<const Config::STRING*>(v->data())); }},
         {"reserved", []() -> ILuaConfigValue* { return new CLuaConfigCssGap(0); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             const auto& gap = *static_cast<const Config::CCssGapData*>(v->data());
+             const auto& gap = *sc<const Config::CCssGapData*>(v->data());
              return p.setReserved(Desktop::CReservedArea(gap.m_top, gap.m_right, gap.m_bottom, gap.m_left));
          }},
         {"reserved_area", []() -> ILuaConfigValue* { return new CLuaConfigCssGap(0); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             const auto& gap = *static_cast<const Config::CCssGapData*>(v->data());
+             const auto& gap = *sc<const Config::CCssGapData*>(v->data());
              return p.setReserved(Desktop::CReservedArea(gap.m_top, gap.m_right, gap.m_bottom, gap.m_left));
          }},
         {"disabled", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             if (*static_cast<const Config::BOOL*>(v->data()))
+             if (*sc<const Config::BOOL*>(v->data()))
                  p.setDisabled();
              return true;
          }},
         {"transform", []() -> ILuaConfigValue* { return new CLuaConfigInt(0, 0, 7); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.rule().m_transform = static_cast<wl_output_transform>(*static_cast<const Config::INTEGER*>(v->data()));
+             p.rule().m_transform = sc<wl_output_transform>(*sc<const Config::INTEGER*>(v->data()));
              return true;
          }},
         {"mirror", []() -> ILuaConfigValue* { return new CLuaConfigString(STRVAL_EMPTY); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.setMirror(*static_cast<const Config::STRING*>(v->data()));
+             p.setMirror(*sc<const Config::STRING*>(v->data()));
              return true;
          }},
         {"bitdepth", []() -> ILuaConfigValue* { return new CLuaConfigInt(8); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.rule().m_enable10bit = *static_cast<const Config::INTEGER*>(v->data()) == 10;
+             p.rule().m_enable10bit = *sc<const Config::INTEGER*>(v->data()) == 10;
              return true;
          }},
         {"cm", []() -> ILuaConfigValue* { return new CLuaConfigString("srgb"); },
-         [](ILuaConfigValue* v, CMonitorRuleParser& p) { return p.parseCM(*static_cast<const Config::STRING*>(v->data())); }},
+         [](ILuaConfigValue* v, CMonitorRuleParser& p) { return p.parseCM(*sc<const Config::STRING*>(v->data())); }},
         {"sdr_eotf", []() -> ILuaConfigValue* { return new CLuaConfigString("default"); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.rule().m_sdrEotf = NTransferFunction::fromString(*static_cast<const Config::STRING*>(v->data()));
+             p.rule().m_sdrEotf = NTransferFunction::fromString(*sc<const Config::STRING*>(v->data()));
              return true;
          }},
         {"sdrbrightness", []() -> ILuaConfigValue* { return new CLuaConfigFloat(1.F); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.rule().m_sdrBrightness = *static_cast<const Config::FLOAT*>(v->data());
+             p.rule().m_sdrBrightness = *sc<const Config::FLOAT*>(v->data());
              return true;
          }},
         {"sdrsaturation", []() -> ILuaConfigValue* { return new CLuaConfigFloat(1.F); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.rule().m_sdrSaturation = *static_cast<const Config::FLOAT*>(v->data());
+             p.rule().m_sdrSaturation = *sc<const Config::FLOAT*>(v->data());
              return true;
          }},
         {"vrr", []() -> ILuaConfigValue* { return new CLuaConfigInt(0, 0, 3); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.rule().m_vrr = static_cast<int>(*static_cast<const Config::INTEGER*>(v->data()));
+             p.rule().m_vrr = sc<int>(*sc<const Config::INTEGER*>(v->data()));
              return true;
          }},
         {"icc", []() -> ILuaConfigValue* { return new CLuaConfigString(STRVAL_EMPTY); },
-         [](ILuaConfigValue* v, CMonitorRuleParser& p) { return p.parseICC(*static_cast<const Config::STRING*>(v->data())); }},
+         [](ILuaConfigValue* v, CMonitorRuleParser& p) { return p.parseICC(*sc<const Config::STRING*>(v->data())); }},
         {"supports_wide_color", []() -> ILuaConfigValue* { return new CLuaConfigInt(0, -1, 1); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.rule().m_supportsWideColor = static_cast<int>(*static_cast<const Config::INTEGER*>(v->data()));
+             p.rule().m_supportsWideColor = sc<int>(*sc<const Config::INTEGER*>(v->data()));
              return true;
          }},
         {"supports_hdr", []() -> ILuaConfigValue* { return new CLuaConfigInt(0, -1, 1); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.rule().m_supportsHDR = static_cast<int>(*static_cast<const Config::INTEGER*>(v->data()));
+             p.rule().m_supportsHDR = sc<int>(*sc<const Config::INTEGER*>(v->data()));
              return true;
          }},
         {"sdr_min_luminance", []() -> ILuaConfigValue* { return new CLuaConfigFloat(0.2F); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.rule().m_sdrMinLuminance = *static_cast<const Config::FLOAT*>(v->data());
+             p.rule().m_sdrMinLuminance = *sc<const Config::FLOAT*>(v->data());
              return true;
          }},
         {"sdr_max_luminance", []() -> ILuaConfigValue* { return new CLuaConfigInt(80); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.rule().m_sdrMaxLuminance = static_cast<int>(*static_cast<const Config::INTEGER*>(v->data()));
+             p.rule().m_sdrMaxLuminance = sc<int>(*sc<const Config::INTEGER*>(v->data()));
              return true;
          }},
         {"min_luminance", []() -> ILuaConfigValue* { return new CLuaConfigFloat(-1.F); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.rule().m_minLuminance = *static_cast<const Config::FLOAT*>(v->data());
+             p.rule().m_minLuminance = *sc<const Config::FLOAT*>(v->data());
              return true;
          }},
         {"max_luminance", []() -> ILuaConfigValue* { return new CLuaConfigInt(-1); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.rule().m_maxLuminance = static_cast<int>(*static_cast<const Config::INTEGER*>(v->data()));
+             p.rule().m_maxLuminance = sc<int>(*sc<const Config::INTEGER*>(v->data()));
              return true;
          }},
         {"max_avg_luminance", []() -> ILuaConfigValue* { return new CLuaConfigInt(-1); },
          [](ILuaConfigValue* v, CMonitorRuleParser& p) {
-             p.rule().m_maxAvgLuminance = static_cast<int>(*static_cast<const Config::INTEGER*>(v->data()));
+             p.rule().m_maxAvgLuminance = sc<int>(*sc<const Config::INTEGER*>(v->data()));
              return true;
          }},
     };
@@ -250,37 +250,35 @@ namespace {
 
     inline const SWorkspaceRuleFieldDesc WORKSPACE_RULE_FIELDS[] = {
         {"monitor", []() -> ILuaConfigValue* { return new CLuaConfigString(STRVAL_EMPTY); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_monitor = *static_cast<const Config::STRING*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_monitor = *sc<const Config::STRING*>(v->data()); }},
         {"default", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_isDefault = *static_cast<const Config::BOOL*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_isDefault = *sc<const Config::BOOL*>(v->data()); }},
         {"persistent", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_isPersistent = *static_cast<const Config::BOOL*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_isPersistent = *sc<const Config::BOOL*>(v->data()); }},
         {"gaps_in", []() -> ILuaConfigValue* { return new CLuaConfigCssGap(5); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_gapsIn = *static_cast<const Config::CCssGapData*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_gapsIn = *sc<const Config::CCssGapData*>(v->data()); }},
         {"gaps_out", []() -> ILuaConfigValue* { return new CLuaConfigCssGap(20); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_gapsOut = *static_cast<const Config::CCssGapData*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_gapsOut = *sc<const Config::CCssGapData*>(v->data()); }},
         {"float_gaps", []() -> ILuaConfigValue* { return new CLuaConfigCssGap(0); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_floatGaps = *static_cast<const Config::CCssGapData*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_floatGaps = *sc<const Config::CCssGapData*>(v->data()); }},
         {"border_size", []() -> ILuaConfigValue* { return new CLuaConfigInt(-1); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_borderSize = *static_cast<const Config::INTEGER*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_borderSize = *sc<const Config::INTEGER*>(v->data()); }},
         {"no_border", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_noBorder = *static_cast<const Config::BOOL*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_noBorder = *sc<const Config::BOOL*>(v->data()); }},
         {"no_rounding", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_noRounding = *static_cast<const Config::BOOL*>(v->data()); }},
-        {"rounding", []() -> ILuaConfigValue* { return new CLuaConfigBool(true); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_noRounding = !*static_cast<const Config::BOOL*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_noRounding = *sc<const Config::BOOL*>(v->data()); }},
         {"decorate", []() -> ILuaConfigValue* { return new CLuaConfigBool(true); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_decorate = *static_cast<const Config::BOOL*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_decorate = *sc<const Config::BOOL*>(v->data()); }},
         {"no_shadow", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_noShadow = *static_cast<const Config::BOOL*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_noShadow = *sc<const Config::BOOL*>(v->data()); }},
         {"on_created_empty", []() -> ILuaConfigValue* { return new CLuaConfigString(STRVAL_EMPTY); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_onCreatedEmptyRunCmd = *static_cast<const Config::STRING*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_onCreatedEmptyRunCmd = *sc<const Config::STRING*>(v->data()); }},
         {"default_name", []() -> ILuaConfigValue* { return new CLuaConfigString(STRVAL_EMPTY); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_defaultName = *static_cast<const Config::STRING*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_defaultName = *sc<const Config::STRING*>(v->data()); }},
         {"layout", []() -> ILuaConfigValue* { return new CLuaConfigString(STRVAL_EMPTY); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_layout = *static_cast<const Config::STRING*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_layout = *sc<const Config::STRING*>(v->data()); }},
         {"animation", []() -> ILuaConfigValue* { return new CLuaConfigString(STRVAL_EMPTY); },
-         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_animationStyle = *static_cast<const Config::STRING*>(v->data()); }},
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_animationStyle = *sc<const Config::STRING*>(v->data()); }},
     };
 
     inline const SFieldDesc DEVICE_FIELDS[] = {
@@ -492,7 +490,7 @@ static int hlAnimation(lua_State* L) {
 }
 
 static int hlEnv(lua_State* L) {
-    auto*            mgr = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto*            mgr = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
     CLuaConfigString nameParser("");
     lua_pushvalue(L, 1);
@@ -551,7 +549,7 @@ static int hlEnv(lua_State* L) {
 }
 
 static int hlPluginLoad(lua_State* L) {
-    auto*            mgr = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto*            mgr = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
     CLuaConfigString pathParser("");
     lua_pushvalue(L, 1);
@@ -570,7 +568,7 @@ static int hlPluginLoad(lua_State* L) {
 }
 
 static int hlPermission(lua_State* L) {
-    auto*       mgr = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto*       mgr = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
     std::string binary;
     std::string typeStr;
@@ -629,7 +627,7 @@ static int hlPermission(lua_State* L) {
 }
 
 static int hlWorkspaceRule(lua_State* L) {
-    auto* self = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto* self = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
     if (!lua_istable(L, 1)) {
         self->addError("hl.workspace_rule: argument must be a table");
@@ -877,7 +875,7 @@ static int hlGesture(lua_State* L) {
 }
 
 static int hlConfig(lua_State* L) {
-    auto* self = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto* self = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
     if (!lua_istable(L, 1)) {
         self->addError("hl.config: argument must be a table");
@@ -941,7 +939,7 @@ static int hlConfig(lua_State* L) {
 }
 
 static int hlGetConfig(lua_State* L) {
-    auto*       self = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto*       self = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
     std::string key = luaL_checkstring(L, 1);
 
@@ -963,7 +961,7 @@ static int hlGetConfig(lua_State* L) {
 }
 
 static int hlDevice(lua_State* L) {
-    auto* self = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto* self = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
     if (!lua_istable(L, 1)) {
         self->addError("hl.device: argument must be a table");
@@ -1025,7 +1023,7 @@ static int hlDevice(lua_State* L) {
 }
 
 static int hlMonitor(lua_State* L) {
-    auto* self = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto* self = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
     if (!lua_istable(L, 1)) {
         self->addError("hl.monitor: argument must be a table");
@@ -1096,7 +1094,7 @@ static int hlMonitor(lua_State* L) {
 }
 
 static int hlWindowRule(lua_State* L) {
-    auto* self = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto* self = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
     if (!lua_istable(L, 1)) {
         self->addError("hl.window_rule: argument must be a table");
@@ -1209,7 +1207,7 @@ static int hlWindowRule(lua_State* L) {
 }
 
 static int hlLayerRule(lua_State* L) {
-    auto* self = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto* self = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
     if (!lua_istable(L, 1)) {
         self->addError("hl.layer_rule: argument must be a table");

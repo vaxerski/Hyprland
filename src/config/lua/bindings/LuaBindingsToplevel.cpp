@@ -108,7 +108,7 @@ static std::expected<void, std::string> parseKeyString(SKeybind& kb, std::string
 }
 
 static int hlBind(lua_State* L) {
-    auto*            mgr = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto*            mgr = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
     std::string_view keys = luaL_checkstring(L, 1);
 
@@ -223,7 +223,7 @@ static int hlBind(lua_State* L) {
 }
 
 static int hlDefineSubmap(lua_State* L) {
-    auto*       mgr  = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto*       mgr  = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
     const char* name = luaL_checkstring(L, 1);
 
     std::string reset;
@@ -543,7 +543,7 @@ static int hlDispatch(lua_State* L) {
 }
 
 static int hlOn(lua_State* L) {
-    auto*       mgr       = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto*       mgr       = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
     const char* eventName = luaL_checkstring(L, 1);
     luaL_checktype(L, 2, LUA_TFUNCTION);
 
@@ -555,8 +555,11 @@ static int hlOn(lua_State* L) {
         luaL_unref(L, LUA_REGISTRYINDEX, ref);
         const auto& known = CLuaEventHandler::knownEvents();
         std::string list;
-        for (const auto& e : known)
-            list += "\n  " + e;
+        for (const auto& e : known) {
+            list += e + ", ";
+        }
+        list.pop_back();
+        list.pop_back();
         return luaL_error(L, "%s", (std::string("hl.on: unknown event \"") + eventName + "\". Known events:" + list).c_str());
     }
 
@@ -565,7 +568,7 @@ static int hlOn(lua_State* L) {
 }
 
 static int hlExecOnce(lua_State* L) {
-    auto* mgr = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto* mgr = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
     if (mgr->isFirstLaunch())
         Config::Supplementary::executor()->addExecOnce({Internal::argStr(L, 1), true});
@@ -610,7 +613,7 @@ static int hlUnbind(lua_State* L) {
 }
 
 static int hlTimer(lua_State* L) {
-    auto* mgr = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
+    auto* mgr = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
 
     luaL_checktype(L, 1, LUA_TFUNCTION);
     luaL_checktype(L, 2, LUA_TTABLE);

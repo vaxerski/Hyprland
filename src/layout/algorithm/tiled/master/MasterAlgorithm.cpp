@@ -79,7 +79,7 @@ void CMasterAlgorithm::addTarget(SP<ITarget> target, bool firstMap) {
         if (WINDOWSONWORKSPACE > 2) {
             auto&             v = m_masterNodesData;
 
-            const std::size_t srcIndex = static_cast<std::size_t>(std::distance(v.begin(), NODEIT));
+            const std::size_t srcIndex = sc<std::size_t>(std::distance(v.begin(), NODEIT));
 
             for (std::size_t i = 0; i < v.size(); ++i) {
                 const CBox box = v[i]->pTarget->position();
@@ -113,8 +113,8 @@ void CMasterAlgorithm::addTarget(SP<ITarget> target, bool firstMap) {
                     break;
 
                 auto node = std::move(v[srcIndex]);
-                v.erase(v.begin() + static_cast<std::ptrdiff_t>(srcIndex));
-                v.insert(v.begin() + static_cast<std::ptrdiff_t>(insertIndex), std::move(node));
+                v.erase(v.begin() + sc<std::ptrdiff_t>(srcIndex));
+                v.insert(v.begin() + sc<std::ptrdiff_t>(insertIndex), std::move(node));
 
                 break;
             }

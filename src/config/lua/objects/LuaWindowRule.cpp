@@ -10,15 +10,15 @@ static constexpr const char* MT = "HL.WindowRule";
 
 //
 static int windowRuleEq(lua_State* L) {
-    const auto* lhs = static_cast<WP<Desktop::Rule::CWindowRule>*>(luaL_checkudata(L, 1, MT));
-    const auto* rhs = static_cast<WP<Desktop::Rule::CWindowRule>*>(luaL_checkudata(L, 2, MT));
+    const auto* lhs = sc<WP<Desktop::Rule::CWindowRule>*>(luaL_checkudata(L, 1, MT));
+    const auto* rhs = sc<WP<Desktop::Rule::CWindowRule>*>(luaL_checkudata(L, 2, MT));
 
     lua_pushboolean(L, lhs->lock() == rhs->lock());
     return 1;
 }
 
 static int windowRuleToString(lua_State* L) {
-    const auto* ref  = static_cast<WP<Desktop::Rule::CWindowRule>*>(luaL_checkudata(L, 1, MT));
+    const auto* ref  = sc<WP<Desktop::Rule::CWindowRule>*>(luaL_checkudata(L, 1, MT));
     const auto  rule = ref->lock();
 
     if (!rule)
@@ -30,7 +30,7 @@ static int windowRuleToString(lua_State* L) {
 }
 
 static int windowRuleSetEnabled(lua_State* L) {
-    auto* ref = static_cast<WP<Desktop::Rule::CWindowRule>*>(luaL_checkudata(L, 1, MT));
+    auto* ref = sc<WP<Desktop::Rule::CWindowRule>*>(luaL_checkudata(L, 1, MT));
     luaL_checktype(L, 2, LUA_TBOOLEAN);
 
     const auto rule = ref->lock();
@@ -43,7 +43,7 @@ static int windowRuleSetEnabled(lua_State* L) {
 }
 
 static int windowRuleIsEnabled(lua_State* L) {
-    auto*      ref = static_cast<WP<Desktop::Rule::CWindowRule>*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<WP<Desktop::Rule::CWindowRule>*>(luaL_checkudata(L, 1, MT));
 
     const auto rule = ref->lock();
     if (!rule) {

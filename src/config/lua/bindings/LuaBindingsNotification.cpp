@@ -34,9 +34,9 @@ static std::optional<eIcons> iconFromString(std::string iconName) {
 
 static std::optional<eIcons> parseIconArg(lua_State* L, int idx) {
     if (lua_isnumber(L, idx)) {
-        const auto raw = static_cast<int>(lua_tonumber(L, idx));
+        const auto raw = sc<int>(lua_tonumber(L, idx));
         if (raw >= ICON_WARNING && raw <= ICON_NONE)
-            return static_cast<eIcons>(raw);
+            return sc<eIcons>(raw);
 
         return std::nullopt;
     }
@@ -49,14 +49,14 @@ static std::optional<eIcons> parseIconArg(lua_State* L, int idx) {
 
 static std::optional<CHyprColor> parseColorArg(lua_State* L, int idx) {
     if (lua_isnumber(L, idx))
-        return CHyprColor(static_cast<uint64_t>(lua_tonumber(L, idx)));
+        return CHyprColor(sc<uint64_t>(lua_tonumber(L, idx)));
 
     if (lua_isstring(L, idx)) {
         auto parsed = configStringToInt(lua_tostring(L, idx));
         if (!parsed)
             return std::nullopt;
 
-        return CHyprColor(static_cast<uint64_t>(*parsed));
+        return CHyprColor(sc<uint64_t>(*parsed));
     }
 
     return std::nullopt;
@@ -106,10 +106,10 @@ static int hlNotificationCreate(lua_State* L) {
         if (*parsedFontSize <= 0)
             return luaL_error(L, "hl.notification.create: 'font_size' must be > 0");
 
-        fontSize = static_cast<float>(*parsedFontSize);
+        fontSize = sc<float>(*parsedFontSize);
     }
 
-    auto notification = Notification::overlay()->addNotification(text, color, static_cast<float>(*duration), icon, fontSize);
+    auto notification = Notification::overlay()->addNotification(text, color, sc<float>(*duration), icon, fontSize);
     Objects::CLuaNotification::push(L, notification);
     return 1;
 }

@@ -20,14 +20,14 @@ namespace {
 
     std::optional<CHyprColor> parseColor(lua_State* L, int idx) {
         if (lua_isnumber(L, idx))
-            return CHyprColor(static_cast<uint64_t>(lua_tonumber(L, idx)));
+            return CHyprColor(sc<uint64_t>(lua_tonumber(L, idx)));
 
         if (lua_isstring(L, idx)) {
             auto parsed = configStringToInt(lua_tostring(L, idx));
             if (!parsed)
                 return std::nullopt;
 
-            return CHyprColor(static_cast<uint64_t>(*parsed));
+            return CHyprColor(sc<uint64_t>(*parsed));
         }
 
         return std::nullopt;
@@ -52,9 +52,9 @@ namespace {
 
     std::optional<eIcons> parseIcon(lua_State* L, int idx) {
         if (lua_isnumber(L, idx)) {
-            const auto raw = static_cast<int>(lua_tonumber(L, idx));
+            const auto raw = sc<int>(lua_tonumber(L, idx));
             if (raw >= ICON_WARNING && raw <= ICON_NONE)
-                return static_cast<eIcons>(raw);
+                return sc<eIcons>(raw);
 
             return std::nullopt;
         }
@@ -67,15 +67,15 @@ namespace {
 }
 
 static int notificationEq(lua_State* L) {
-    const auto* lhs = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
-    const auto* rhs = static_cast<SNotificationRef*>(luaL_checkudata(L, 2, MT));
+    const auto* lhs = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    const auto* rhs = sc<SNotificationRef*>(luaL_checkudata(L, 2, MT));
 
     lua_pushboolean(L, lhs->notification.lock() == rhs->notification.lock());
     return 1;
 }
 
 static int notificationToString(lua_State* L) {
-    const auto* ref          = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    const auto* ref          = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
     const auto  notification = ref->notification.lock();
 
     if (!notification)
@@ -87,7 +87,7 @@ static int notificationToString(lua_State* L) {
 }
 
 static int notificationGC(lua_State* L) {
-    auto* ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto* ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     if (ref->paused) {
         if (const auto notification = ref->notification.lock(); notification)
@@ -99,7 +99,7 @@ static int notificationGC(lua_State* L) {
 }
 
 static int notificationPause(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     const auto notification = ref->notification.lock();
     if (!notification)
@@ -114,7 +114,7 @@ static int notificationPause(lua_State* L) {
 }
 
 static int notificationResume(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     const auto notification = ref->notification.lock();
     if (!notification)
@@ -139,7 +139,7 @@ static int notificationSetPaused(lua_State* L) {
 }
 
 static int notificationIsPaused(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     const auto notification = ref->notification.lock();
     if (!notification) {
@@ -152,7 +152,7 @@ static int notificationIsPaused(lua_State* L) {
 }
 
 static int notificationSetText(lua_State* L) {
-    auto*       ref  = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*       ref  = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
     const auto* text = luaL_checkstring(L, 2);
 
     if (const auto notification = ref->notification.lock(); notification)
@@ -162,9 +162,9 @@ static int notificationSetText(lua_State* L) {
 }
 
 static int notificationSetTimeout(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
-    const auto timeoutMs = static_cast<float>(luaL_checknumber(L, 2));
+    const auto timeoutMs = sc<float>(luaL_checknumber(L, 2));
     if (timeoutMs < 0.F)
         return luaL_error(L, "HL.Notification:set_timeout: timeout must be >= 0");
 
@@ -175,7 +175,7 @@ static int notificationSetTimeout(lua_State* L) {
 }
 
 static int notificationSetColor(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     const auto color = parseColor(L, 2);
     if (!color)
@@ -188,7 +188,7 @@ static int notificationSetColor(lua_State* L) {
 }
 
 static int notificationSetIcon(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     const auto icon = parseIcon(L, 2);
     if (!icon)
@@ -201,9 +201,9 @@ static int notificationSetIcon(lua_State* L) {
 }
 
 static int notificationSetFontSize(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
-    const auto fontSize = static_cast<float>(luaL_checknumber(L, 2));
+    const auto fontSize = sc<float>(luaL_checknumber(L, 2));
     if (fontSize <= 0.F)
         return luaL_error(L, "HL.Notification:set_font_size: font size must be > 0");
 
@@ -214,7 +214,7 @@ static int notificationSetFontSize(lua_State* L) {
 }
 
 static int notificationDismiss(lua_State* L) {
-    auto* ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto* ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     if (const auto notification = ref->notification.lock(); notification)
         Notification::overlay()->dismissNotification(notification);
@@ -223,7 +223,7 @@ static int notificationDismiss(lua_State* L) {
 }
 
 static int notificationGetText(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     const auto notification = ref->notification.lock();
     if (!notification) {
@@ -236,7 +236,7 @@ static int notificationGetText(lua_State* L) {
 }
 
 static int notificationGetTimeout(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     const auto notification = ref->notification.lock();
     if (!notification) {
@@ -249,7 +249,7 @@ static int notificationGetTimeout(lua_State* L) {
 }
 
 static int notificationGetColor(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     const auto notification = ref->notification.lock();
     if (!notification) {
@@ -257,12 +257,12 @@ static int notificationGetColor(lua_State* L) {
         return 1;
     }
 
-    lua_pushinteger(L, static_cast<lua_Integer>(notification->color().getAsHex()));
+    lua_pushinteger(L, sc<lua_Integer>(notification->color().getAsHex()));
     return 1;
 }
 
 static int notificationGetIcon(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     const auto notification = ref->notification.lock();
     if (!notification) {
@@ -270,12 +270,12 @@ static int notificationGetIcon(lua_State* L) {
         return 1;
     }
 
-    lua_pushinteger(L, static_cast<lua_Integer>(notification->icon()));
+    lua_pushinteger(L, sc<lua_Integer>(notification->icon()));
     return 1;
 }
 
 static int notificationGetFontSize(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     const auto notification = ref->notification.lock();
     if (!notification) {
@@ -288,7 +288,7 @@ static int notificationGetFontSize(lua_State* L) {
 }
 
 static int notificationGetElapsed(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     const auto notification = ref->notification.lock();
     if (!notification) {
@@ -301,7 +301,7 @@ static int notificationGetElapsed(lua_State* L) {
 }
 
 static int notificationGetElapsedSinceCreation(lua_State* L) {
-    auto*      ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     const auto notification = ref->notification.lock();
     if (!notification) {
@@ -314,7 +314,7 @@ static int notificationGetElapsedSinceCreation(lua_State* L) {
 }
 
 static int notificationIsAlive(lua_State* L) {
-    auto* ref = static_cast<SNotificationRef*>(luaL_checkudata(L, 1, MT));
+    auto* ref = sc<SNotificationRef*>(luaL_checkudata(L, 1, MT));
 
     lua_pushboolean(L, ref->notification.lock().get() != nullptr);
     return 1;

@@ -13,15 +13,15 @@ static constexpr const char* MT = "HL.Monitor";
 
 //
 static int monitorEq(lua_State* L) {
-    const auto* lhs = static_cast<PHLMONITORREF*>(luaL_checkudata(L, 1, MT));
-    const auto* rhs = static_cast<PHLMONITORREF*>(luaL_checkudata(L, 2, MT));
+    const auto* lhs = sc<PHLMONITORREF*>(luaL_checkudata(L, 1, MT));
+    const auto* rhs = sc<PHLMONITORREF*>(luaL_checkudata(L, 2, MT));
 
     lua_pushboolean(L, lhs->lock() == rhs->lock());
     return 1;
 }
 
 static int monitorToString(lua_State* L) {
-    const auto* ref = static_cast<PHLMONITORREF*>(luaL_checkudata(L, 1, MT));
+    const auto* ref = sc<PHLMONITORREF*>(luaL_checkudata(L, 1, MT));
     const auto  mon = ref->lock();
 
     if (!mon)
@@ -33,7 +33,7 @@ static int monitorToString(lua_State* L) {
 }
 
 static int monitorIndex(lua_State* L) {
-    auto*      ref = static_cast<PHLMONITORREF*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<PHLMONITORREF*>(luaL_checkudata(L, 1, MT));
     const auto mon = ref->lock();
     if (!mon) {
         Log::logger->log(Log::DEBUG, "[lua] Tried to access an expired object");
@@ -44,21 +44,21 @@ static int monitorIndex(lua_State* L) {
     const std::string_view key = luaL_checkstring(L, 2);
 
     if (key == "id")
-        lua_pushinteger(L, static_cast<lua_Integer>(mon->m_id));
+        lua_pushinteger(L, sc<lua_Integer>(mon->m_id));
     else if (key == "name")
         lua_pushstring(L, mon->m_name.c_str());
     else if (key == "description")
         lua_pushstring(L, mon->m_shortDescription.c_str());
     else if (key == "width")
-        lua_pushinteger(L, static_cast<int>(mon->m_pixelSize.x));
+        lua_pushinteger(L, sc<int>(mon->m_pixelSize.x));
     else if (key == "height")
-        lua_pushinteger(L, static_cast<int>(mon->m_pixelSize.y));
+        lua_pushinteger(L, sc<int>(mon->m_pixelSize.y));
     else if (key == "refresh_rate")
         lua_pushnumber(L, mon->m_refreshRate);
     else if (key == "x")
-        lua_pushinteger(L, static_cast<int>(mon->m_position.x));
+        lua_pushinteger(L, sc<int>(mon->m_position.x));
     else if (key == "y")
-        lua_pushinteger(L, static_cast<int>(mon->m_position.y));
+        lua_pushinteger(L, sc<int>(mon->m_position.y));
     else if (key == "active_workspace") {
         if (mon->m_activeWorkspace)
             Objects::CLuaWorkspace::push(L, mon->m_activeWorkspace);
@@ -71,20 +71,20 @@ static int monitorIndex(lua_State* L) {
             lua_pushnil(L);
     } else if (key == "position") {
         lua_newtable(L);
-        lua_pushinteger(L, static_cast<int>(mon->m_position.x));
+        lua_pushinteger(L, sc<int>(mon->m_position.x));
         lua_setfield(L, -2, "x");
-        lua_pushinteger(L, static_cast<int>(mon->m_position.y));
+        lua_pushinteger(L, sc<int>(mon->m_position.y));
         lua_setfield(L, -2, "y");
     } else if (key == "size") {
         lua_newtable(L);
-        lua_pushinteger(L, static_cast<int>(mon->m_pixelSize.x));
+        lua_pushinteger(L, sc<int>(mon->m_pixelSize.x));
         lua_setfield(L, -2, "width");
-        lua_pushinteger(L, static_cast<int>(mon->m_pixelSize.y));
+        lua_pushinteger(L, sc<int>(mon->m_pixelSize.y));
         lua_setfield(L, -2, "height");
     } else if (key == "scale")
         lua_pushnumber(L, mon->m_scale);
     else if (key == "transform")
-        lua_pushinteger(L, static_cast<int>(mon->m_transform));
+        lua_pushinteger(L, sc<int>(mon->m_transform));
     else if (key == "dpms_status")
         lua_pushboolean(L, mon->m_dpmsStatus);
     else if (key == "vrr_active")

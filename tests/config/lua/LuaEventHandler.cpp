@@ -39,7 +39,7 @@ namespace {
 
     int getGlobalInt(lua_State* L, const char* name) {
         lua_getglobal(L, name);
-        const int val = static_cast<int>(lua_tointeger(L, -1));
+        const int val = sc<int>(lua_tointeger(L, -1));
         lua_pop(L, 1);
         return val;
     }

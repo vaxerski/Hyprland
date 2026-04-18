@@ -15,15 +15,15 @@ namespace {
 }
 
 static int timerEq(lua_State* L) {
-    const auto* lhs = static_cast<STimerRef*>(luaL_checkudata(L, 1, MT));
-    const auto* rhs = static_cast<STimerRef*>(luaL_checkudata(L, 2, MT));
+    const auto* lhs = sc<STimerRef*>(luaL_checkudata(L, 1, MT));
+    const auto* rhs = sc<STimerRef*>(luaL_checkudata(L, 2, MT));
 
     lua_pushboolean(L, lhs->timer.lock() == rhs->timer.lock());
     return 1;
 }
 
 static int timerToString(lua_State* L) {
-    const auto* ref   = static_cast<STimerRef*>(luaL_checkudata(L, 1, MT));
+    const auto* ref   = sc<STimerRef*>(luaL_checkudata(L, 1, MT));
     const auto  timer = ref->timer.lock();
 
     if (!timer)
@@ -35,7 +35,7 @@ static int timerToString(lua_State* L) {
 }
 
 static int timerSetEnabled(lua_State* L) {
-    auto* ref = static_cast<STimerRef*>(luaL_checkudata(L, 1, MT));
+    auto* ref = sc<STimerRef*>(luaL_checkudata(L, 1, MT));
     luaL_checktype(L, 2, LUA_TBOOLEAN);
 
     const auto timer = ref->timer.lock();
@@ -51,7 +51,7 @@ static int timerSetEnabled(lua_State* L) {
 }
 
 static int timerSetTimeout(lua_State* L) {
-    auto* ref = static_cast<STimerRef*>(luaL_checkudata(L, 1, MT));
+    auto* ref = sc<STimerRef*>(luaL_checkudata(L, 1, MT));
     luaL_checktype(L, 2, LUA_TNUMBER);
 
     const auto timer = ref->timer.lock();
@@ -70,7 +70,7 @@ static int timerSetTimeout(lua_State* L) {
 }
 
 static int timerIsEnabled(lua_State* L) {
-    auto*      ref = static_cast<STimerRef*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<STimerRef*>(luaL_checkudata(L, 1, MT));
 
     const auto timer = ref->timer.lock();
     if (!timer) {

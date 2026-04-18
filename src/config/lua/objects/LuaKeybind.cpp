@@ -9,7 +9,7 @@ static constexpr const char* MT = "HL.Keybind";
 
 namespace {
     std::optional<SP<SKeybind>> getKeybindFromUserdata(lua_State* L) {
-        auto* ref = static_cast<WP<SKeybind>*>(luaL_checkudata(L, 1, MT));
+        auto* ref = sc<WP<SKeybind>*>(luaL_checkudata(L, 1, MT));
         return ref->lock();
     }
 
@@ -24,15 +24,15 @@ namespace {
 }
 
 static int keybindEq(lua_State* L) {
-    const auto* lhs = static_cast<WP<SKeybind>*>(luaL_checkudata(L, 1, MT));
-    const auto* rhs = static_cast<WP<SKeybind>*>(luaL_checkudata(L, 2, MT));
+    const auto* lhs = sc<WP<SKeybind>*>(luaL_checkudata(L, 1, MT));
+    const auto* rhs = sc<WP<SKeybind>*>(luaL_checkudata(L, 2, MT));
 
     lua_pushboolean(L, lhs->lock() == rhs->lock());
     return 1;
 }
 
 static int keybindToString(lua_State* L) {
-    const auto* ref     = static_cast<WP<SKeybind>*>(luaL_checkudata(L, 1, MT));
+    const auto* ref     = sc<WP<SKeybind>*>(luaL_checkudata(L, 1, MT));
     const auto  keybind = ref->lock();
 
     if (!keybind)
@@ -128,11 +128,11 @@ static int keybindIndex(lua_State* L) {
     else if (key == "arg")
         lua_pushstring(L, (*keybind)->arg.c_str());
     else if (key == "modmask")
-        lua_pushinteger(L, static_cast<lua_Integer>((*keybind)->modmask));
+        lua_pushinteger(L, sc<lua_Integer>((*keybind)->modmask));
     else if (key == "key")
         lua_pushstring(L, (*keybind)->key.c_str());
     else if (key == "keycode")
-        lua_pushinteger(L, static_cast<lua_Integer>((*keybind)->keycode));
+        lua_pushinteger(L, sc<lua_Integer>((*keybind)->keycode));
     else if (key == "catchall")
         lua_pushboolean(L, (*keybind)->catchAll);
     else if (key == "repeating")

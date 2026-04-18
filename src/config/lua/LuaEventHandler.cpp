@@ -92,7 +92,7 @@ CLuaEventHandler::CLuaEventHandler(lua_State* L) : m_lua(L) {
     m_listeners.push_back(bus()->m_events.window.active.listen([this](PHLWINDOW w, Desktop::eFocusReason r) {
         dispatch("window.active", 2, [&] {
             CLuaWindow::push(m_lua, w);
-            lua_pushinteger(m_lua, static_cast<lua_Integer>(r));
+            lua_pushinteger(m_lua, sc<lua_Integer>(r));
         });
     }));
     m_listeners.push_back(bus()->m_events.window.urgent.listen([this](PHLWINDOW w) { dispatch("window.urgent", 1, [&] { CLuaWindow::push(m_lua, w); }); }));
@@ -142,15 +142,14 @@ CLuaEventHandler::CLuaEventHandler(lua_State* L) : m_lua(L) {
     m_listeners.push_back(bus()->m_events.screenshare.state.listen([this](bool state, uint8_t type, const std::string& name) {
         dispatch("screenshare.state", 3, [&] {
             lua_pushboolean(m_lua, state);
-            lua_pushinteger(m_lua, static_cast<lua_Integer>(type));
+            lua_pushinteger(m_lua, sc<lua_Integer>(type));
             lua_pushstring(m_lua, name.c_str());
         });
     }));
 }
 
 CLuaEventHandler::~CLuaEventHandler() {
-    for (const auto& [_, sub] : m_subscriptions)
-        luaL_unref(m_lua, LUA_REGISTRYINDEX, sub.luaRef);
+    clearEvents();
 }
 
 std::optional<uint64_t> CLuaEventHandler::registerEvent(const std::string& name, int luaRef) {
@@ -183,6 +182,17 @@ bool CLuaEventHandler::unregisterEvent(uint64_t handle) {
     m_reentrancyWarnedHandles.erase(handle);
 
     return true;
+}
+
+void CLuaEventHandler::clearEvents() {
+    for (const auto& s : m_subscriptions) {
+        luaL_unref(m_lua, LUA_REGISTRYINDEX, s.second.luaRef);
+    }
+
+    m_subscriptions.clear();
+    m_activeHandles.clear();
+    m_reentrancyWarnedHandles.clear();
+    m_callbacks.clear();
 }
 
 const std::unordered_set<std::string>& CLuaEventHandler::knownEvents() {

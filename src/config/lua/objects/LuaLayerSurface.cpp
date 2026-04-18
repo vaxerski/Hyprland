@@ -13,15 +13,15 @@ static constexpr const char* MT = "HL.LayerSurface";
 
 //
 static int layerSurfaceEq(lua_State* L) {
-    const auto* lhs = static_cast<PHLLSREF*>(luaL_checkudata(L, 1, MT));
-    const auto* rhs = static_cast<PHLLSREF*>(luaL_checkudata(L, 2, MT));
+    const auto* lhs = sc<PHLLSREF*>(luaL_checkudata(L, 1, MT));
+    const auto* rhs = sc<PHLLSREF*>(luaL_checkudata(L, 2, MT));
 
     lua_pushboolean(L, lhs->lock() == rhs->lock());
     return 1;
 }
 
 static int layerSurfaceToString(lua_State* L) {
-    const auto* ref = static_cast<PHLLSREF*>(luaL_checkudata(L, 1, MT));
+    const auto* ref = sc<PHLLSREF*>(luaL_checkudata(L, 1, MT));
     const auto  ls  = ref->lock();
 
     if (!ls)
@@ -33,7 +33,7 @@ static int layerSurfaceToString(lua_State* L) {
 }
 
 static int layerSurfaceIndex(lua_State* L) {
-    auto*      ref = static_cast<PHLLSREF*>(luaL_checkudata(L, 1, MT));
+    auto*      ref = sc<PHLLSREF*>(luaL_checkudata(L, 1, MT));
     const auto ls  = ref->lock();
     if (!ls) {
         Log::logger->log(Log::DEBUG, "[lua] Tried to access an expired object");
@@ -56,7 +56,7 @@ static int layerSurfaceIndex(lua_State* L) {
     else if (key == "namespace")
         lua_pushstring(L, ls->m_namespace.c_str());
     else if (key == "pid")
-        lua_pushinteger(L, static_cast<lua_Integer>(ls->getPID()));
+        lua_pushinteger(L, sc<lua_Integer>(ls->getPID()));
     else if (key == "monitor") {
         const auto mon = ls->m_monitor.lock();
         if (mon)
@@ -66,9 +66,9 @@ static int layerSurfaceIndex(lua_State* L) {
     } else if (key == "mapped")
         lua_pushboolean(L, ls->m_mapped);
     else if (key == "layer")
-        lua_pushinteger(L, static_cast<lua_Integer>(ls->m_layer));
+        lua_pushinteger(L, sc<lua_Integer>(ls->m_layer));
     else if (key == "interactivity")
-        lua_pushinteger(L, static_cast<lua_Integer>(ls->m_interactivity));
+        lua_pushinteger(L, sc<lua_Integer>(ls->m_interactivity));
     else if (key == "above_fullscreen")
         lua_pushboolean(L, ls->m_aboveFullscreen);
     else

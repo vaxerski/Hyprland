@@ -63,7 +63,7 @@ PHLMONITOR Internal::monitorFromLuaSelectorOrObject(lua_State* L, int idx, const
     if (lua_isnil(L, idx))
         return nullptr;
 
-    if (auto* ref = static_cast<PHLMONITORREF*>(luaL_testudata(L, idx, LUA_MONITOR_MT)); ref)
+    if (auto* ref = sc<PHLMONITORREF*>(luaL_testudata(L, idx, LUA_MONITOR_MT)); ref)
         return ref->lock();
 
     if (lua_isstring(L, idx) || lua_isnumber(L, idx))
@@ -79,7 +79,7 @@ PHLWORKSPACE Internal::workspaceFromLuaSelectorOrObject(lua_State* L, int idx, c
     if (lua_isnil(L, idx))
         return nullptr;
 
-    if (auto* ref = static_cast<PHLWORKSPACEREF*>(luaL_testudata(L, idx, LUA_WORKSPACE_MT)); ref) {
+    if (auto* ref = sc<PHLWORKSPACEREF*>(luaL_testudata(L, idx, LUA_WORKSPACE_MT)); ref) {
         auto ws = ref->lock();
         if (!ws || ws->inert())
             return nullptr;
@@ -100,7 +100,7 @@ PHLWINDOW Internal::windowFromLuaSelectorOrObject(lua_State* L, int idx, const c
     if (lua_isnil(L, idx))
         return nullptr;
 
-    if (auto* ref = static_cast<PHLWINDOWREF*>(luaL_testudata(L, idx, LUA_WINDOW_MT)); ref)
+    if (auto* ref = sc<PHLWINDOWREF*>(luaL_testudata(L, idx, LUA_WINDOW_MT)); ref)
         return ref->lock();
 
     if (lua_isstring(L, idx) || lua_isnumber(L, idx))
@@ -155,7 +155,7 @@ std::optional<std::string> Internal::monitorSelectorFromLuaSelectorOrObject(lua_
     if (lua_isnil(L, idx))
         return std::nullopt;
 
-    if (auto* ref = static_cast<PHLMONITORREF*>(luaL_testudata(L, idx, LUA_MONITOR_MT)); ref) {
+    if (auto* ref = sc<PHLMONITORREF*>(luaL_testudata(L, idx, LUA_MONITOR_MT)); ref) {
         const auto mon = ref->lock();
         if (!mon)
             luaL_error(L, "%s: monitor object is expired", fnName);
@@ -176,7 +176,7 @@ std::optional<std::string> Internal::workspaceSelectorFromLuaSelectorOrObject(lu
     if (lua_isnil(L, idx))
         return std::nullopt;
 
-    if (auto* ref = static_cast<PHLWORKSPACEREF*>(luaL_testudata(L, idx, LUA_WORKSPACE_MT)); ref) {
+    if (auto* ref = sc<PHLWORKSPACEREF*>(luaL_testudata(L, idx, LUA_WORKSPACE_MT)); ref) {
         const auto ws = ref->lock();
         if (!ws || ws->inert())
             luaL_error(L, "%s: workspace object is expired", fnName);
@@ -197,7 +197,7 @@ std::optional<std::string> Internal::windowSelectorFromLuaSelectorOrObject(lua_S
     if (lua_isnil(L, idx))
         return std::nullopt;
 
-    if (auto* ref = static_cast<PHLWINDOWREF*>(luaL_testudata(L, idx, LUA_WINDOW_MT)); ref) {
+    if (auto* ref = sc<PHLWINDOWREF*>(luaL_testudata(L, idx, LUA_WINDOW_MT)); ref) {
         const auto w = ref->lock();
         if (!w)
             luaL_error(L, "%s: window object is expired", fnName);

@@ -43,35 +43,26 @@ using namespace Config;
 using namespace Config::Lua;
 using namespace Hyprutils::String;
 
-namespace {
-    bool isValidLuaIdentifier(const std::string& value) {
-        if (value.empty())
-            return false;
+static bool isValidLuaIdentifier(const std::string& value) {
+    if (value.empty())
+        return false;
 
-        const auto FIRST = static_cast<unsigned char>(value[0]);
-        if (!(std::isalpha(FIRST) || value[0] == '_'))
-            return false;
+    if (!std::isalpha(value[0]) && value[0] != '_')
+        return false;
 
-        for (const auto c : value) {
-            const auto CH = static_cast<unsigned char>(c);
-            if (!(std::isalnum(CH) || c == '_'))
-                return false;
-        }
+    return std::ranges::all_of(value, [](const char& c) { return std::isalnum(c) || c == '_'; });
+}
 
-        return true;
-    }
+static int pluginLuaFunctionDispatcher(lua_State* L) {
+    auto* mgr = CConfigManager::fromLuaState(L);
+    if (!mgr)
+        return luaL_error(L, "hl.plugin: internal error: config manager unavailable");
 
-    int pluginLuaFunctionDispatcher(lua_State* L) {
-        auto* mgr = CConfigManager::fromLuaState(L);
-        if (!mgr)
-            return luaL_error(L, "hl.plugin: internal error: config manager unavailable");
+    if (!lua_isinteger(L, lua_upvalueindex(1)))
+        return luaL_error(L, "hl.plugin: internal error: invalid callback id");
 
-        if (!lua_isinteger(L, lua_upvalueindex(1)))
-            return luaL_error(L, "hl.plugin: internal error: invalid callback id");
-
-        const auto id = static_cast<uint64_t>(lua_tointeger(L, lua_upvalueindex(1)));
-        return mgr->invokePluginLuaFunctionByID(id, L);
-    }
+    const auto id = sc<uint64_t>(lua_tointeger(L, lua_upvalueindex(1)));
+    return mgr->invokePluginLuaFunctionByID(id, L);
 }
 
 CConfigManager::CConfigManager() : m_mainConfigPath(Supplementary::Jeremy::getMainConfigPath()->path) {
@@ -83,7 +74,7 @@ CConfigManager* CConfigManager::fromLuaState(lua_State* L) {
         return nullptr;
 
     lua_getfield(L, LUA_REGISTRYINDEX, "hl_lua_manager");
-    auto* mgr = static_cast<CConfigManager*>(lua_touserdata(L, -1));
+    auto* mgr = sc<CConfigManager*>(lua_touserdata(L, -1));
     lua_pop(L, 1);
     return mgr;
 }
@@ -201,7 +192,7 @@ void CConfigManager::reinitLuaState() {
             lua_pushvalue(L, 1); // module name
             lua_call(L, 1, 2);   // -> loader?, filename?
             if (lua_isfunction(L, -2) && lua_isstring(L, -1)) {
-                auto* self = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(2)));
+                auto* self = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(2)));
                 self->m_configPaths.emplace_back(lua_tostring(L, -1));
             }
             return 2;
@@ -290,6 +281,7 @@ void CConfigManager::reload() {
     m_errors.clear();
     m_deviceConfigs.clear();
     m_registeredPlugins.clear();
+    m_eventHandler->clearEvents();
 
     if (g_pKeybindManager) {
         for (const auto& kb : g_pKeybindManager->m_keybinds) {
@@ -511,18 +503,18 @@ ILuaConfigValue* CConfigManager::findDeviceValue(const std::string& dev, const s
 int CConfigManager::getDeviceInt(const std::string& dev, const std::string& field, const std::string& fb) {
     std::string fallback = luaConfigValueName(fb);
     if (auto* v = findDeviceValue(normalizeDeviceName(dev), field))
-        return (int)*static_cast<const Config::INTEGER*>(v->data());
+        return (int)*sc<const Config::INTEGER*>(v->data());
     if (!fallback.empty() && m_configValues.contains(fallback))
-        return (int)*static_cast<const Config::INTEGER*>(m_configValues.at(fallback)->data());
+        return (int)*sc<const Config::INTEGER*>(m_configValues.at(fallback)->data());
     return 0;
 }
 
 float CConfigManager::getDeviceFloat(const std::string& dev, const std::string& field, const std::string& fb) {
     std::string fallback = luaConfigValueName(fb);
     if (auto* v = findDeviceValue(normalizeDeviceName(dev), field))
-        return *static_cast<const Config::FLOAT*>(v->data());
+        return *sc<const Config::FLOAT*>(v->data());
     if (!fallback.empty() && m_configValues.contains(fallback))
-        return *static_cast<const Config::FLOAT*>(m_configValues.at(fallback)->data());
+        return *sc<const Config::FLOAT*>(m_configValues.at(fallback)->data());
     return 0.F;
 }
 
@@ -530,9 +522,9 @@ Vector2D CConfigManager::getDeviceVec(const std::string& dev, const std::string&
     std::string fallback = luaConfigValueName(fb);
     auto        toVec    = [](const Config::VEC2& v) -> Vector2D { return {v.x, v.y}; };
     if (auto* val = findDeviceValue(normalizeDeviceName(dev), field))
-        return toVec(*static_cast<const Config::VEC2*>(val->data()));
+        return toVec(*sc<const Config::VEC2*>(val->data()));
     if (!fallback.empty() && m_configValues.contains(fallback))
-        return toVec(*static_cast<const Config::VEC2*>(m_configValues.at(fallback)->data()));
+        return toVec(*sc<const Config::VEC2*>(m_configValues.at(fallback)->data()));
     return {0, 0};
 }
 
@@ -540,9 +532,9 @@ std::string CConfigManager::getDeviceString(const std::string& dev, const std::s
     std::string fallback = luaConfigValueName(fb);
     auto        clean    = [](const Config::STRING& s) -> std::string { return s == STRVAL_EMPTY ? "" : s; };
     if (auto* v = findDeviceValue(normalizeDeviceName(dev), field))
-        return clean(*static_cast<const Config::STRING*>(v->data()));
+        return clean(*sc<const Config::STRING*>(v->data()));
     if (!fallback.empty() && m_configValues.contains(fallback))
-        return clean(*static_cast<const Config::STRING*>(m_configValues.at(fallback)->data()));
+        return clean(*sc<const Config::STRING*>(m_configValues.at(fallback)->data()));
     return "";
 }
 
@@ -745,7 +737,7 @@ std::expected<void, std::string> CConfigManager::registerPluginLuaFunctionInStat
         return std::unexpected(std::format("hl.plugin.{}.{} already exists", nameSpace, name));
     }
 
-    lua_pushinteger(m_lua, static_cast<lua_Integer>(id));
+    lua_pushinteger(m_lua, sc<lua_Integer>(id));
     lua_pushcclosure(m_lua, pluginLuaFunctionDispatcher, 1);
     lua_setfield(m_lua, nameSpaceTableIdx, name.c_str());
 

@@ -10,7 +10,7 @@ static std::expected<CHyprColor, std::string> parseColorString(const std::string
     auto result = configStringToInt(str);
     if (!result)
         return std::unexpected(std::format("invalid color \"{}\"", str));
-    return CHyprColor(static_cast<uint64_t>(*result));
+    return CHyprColor(sc<uint64_t>(*result));
 }
 
 CLuaConfigGradient::CLuaConfigGradient(CHyprColor def) : m_default(def), m_data(def) {
@@ -40,7 +40,7 @@ SParseError CLuaConfigGradient::parse(lua_State* s) {
     }
 
     std::vector<CHyprColor> colors;
-    int                     len = static_cast<int>(lua_rawlen(s, -1));
+    int                     len = sc<int>(lua_rawlen(s, -1));
     if (len == 0) {
         lua_pop(s, 1);
         return {.errorCode = PARSE_ERROR_BAD_VALUE, .message = "gradient \"colors\" must not be empty"};
@@ -72,7 +72,7 @@ SParseError CLuaConfigGradient::parse(lua_State* s) {
             lua_pop(s, 1);
             return {.errorCode = PARSE_ERROR_BAD_TYPE, .message = "gradient \"angle\" must be a number (degrees)"};
         }
-        angle = static_cast<float>(lua_tonumber(s, -1) * std::numbers::pi / 180.0);
+        angle = sc<float>(lua_tonumber(s, -1) * std::numbers::pi / 180.0);
     }
     lua_pop(s, 1);
 
@@ -104,7 +104,7 @@ std::string CLuaConfigGradient::toString() {
     if (!result.empty())
         result += ' ';
 
-    result += std::format("{}deg", static_cast<int>(m_data.m_angle * 180.0 / std::numbers::pi_v<float>));
+    result += std::format("{}deg", sc<int>(m_data.m_angle * 180.0 / std::numbers::pi_v<float>));
 
     return result;
 }

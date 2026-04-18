@@ -935,7 +935,7 @@ std::string deviceNameToInternalString(const std::string& in) {
                           case '\n':
                           case ',': return '-';
 
-                          default: return static_cast<char>(std::tolower(ch));
+                          default: return sc<char>(std::tolower(ch));
                       }
                   });
 

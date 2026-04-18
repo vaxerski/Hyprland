@@ -34,6 +34,8 @@ namespace Config::Lua {
         std::optional<uint64_t>                       registerEvent(const std::string& name, int luaRef);
         bool                                          unregisterEvent(uint64_t handle);
 
+        void                                          clearEvents();
+
         static const std::unordered_set<std::string>& knownEvents();
 
       private:
@@ -56,4 +58,4 @@ namespace Config::Lua {
         void                                                   dispatch(const std::string& name, int nargs, const std::function<void()>& pushArgs);
     };
 
-} // namespace Config::Lua
+}
