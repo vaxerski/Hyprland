@@ -1069,7 +1069,6 @@ static int hlMonitor(lua_State* L) {
 
     if (!self->isFirstLaunch()) {
         Config::monitorRuleMgr()->scheduleReload();
-        Config::monitorRuleMgr()->ensureMonitorStatus();
         Config::monitorRuleMgr()->ensureVRR();
         recalculateMonitorLayouts();
         g_pCompositor->ensurePersistentWorkspacesPresent();
