@@ -481,9 +481,6 @@ ActionResult Actions::swapWith(PHLWINDOW other, std::optional<PHLWINDOW> w) {
     if (window->isFullscreen() || other->isFullscreen())
         return std::unexpected("Can't swap fullscreen window");
 
-    if (window->m_workspace != other->m_workspace)
-        return std::unexpected("Can only swap windows on the same workspace");
-
     updateRelativeCursorCoords();
     g_layoutManager->switchTargets(window->layoutTarget(), other->layoutTarget(), true);
     window->warpCursor();

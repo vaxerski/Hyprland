@@ -54,6 +54,7 @@ static std::expected<void, std::string> parseKeyString(SKeybind& kb, std::string
 
     uint32_t                  modMask = 0;
     std::vector<xkb_keysym_t> keysyms;
+    std::string               lastKeyArg;
 
     for (const auto& a : vl) {
         auto arg = Hyprutils::String::trim(a);
@@ -95,11 +96,14 @@ static std::expected<void, std::string> parseKeyString(SKeybind& kb, std::string
             return std::unexpected(std::format("Unknown keysym: \"{}\"", arg));
         }
 
+        lastKeyArg = arg;
         keysyms.emplace_back(sym);
     }
 
     kb.modmask = modMask;
     kb.sMkKeys = std::move(keysyms);
+    if (!specialSym && !lastKeyArg.empty())
+        kb.key = lastKeyArg;
     return {};
 }
 
@@ -109,7 +113,8 @@ static int hlBind(lua_State* L) {
     std::string_view keys = luaL_checkstring(L, 1);
 
     SKeybind         kb;
-    kb.submap.name = mgr->m_currentSubmap;
+    kb.submap.name  = mgr->m_currentSubmap;
+    kb.submap.reset = mgr->m_currentSubmapReset;
 
     if (auto res = parseKeyString(kb, keys); !res)
         return luaL_error(L, std::format("hl.bind: failed to parse key string: {}", res.error()).c_str());
@@ -220,18 +225,29 @@ static int hlBind(lua_State* L) {
 static int hlDefineSubmap(lua_State* L) {
     auto*       mgr  = static_cast<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
     const char* name = luaL_checkstring(L, 1);
-    luaL_checktype(L, 2, LUA_TFUNCTION);
 
-    std::string prev     = mgr->m_currentSubmap;
-    mgr->m_currentSubmap = name;
+    std::string reset;
+    int         fnIdx = 2;
+    if (lua_gettop(L) >= 3 && lua_isstring(L, 2)) {
+        reset = lua_tostring(L, 2);
+        fnIdx = 3;
+    }
 
-    lua_pushvalue(L, 2);
+    luaL_checktype(L, fnIdx, LUA_TFUNCTION);
+
+    std::string prev          = mgr->m_currentSubmap;
+    std::string prevReset     = mgr->m_currentSubmapReset;
+    mgr->m_currentSubmap      = name;
+    mgr->m_currentSubmapReset = reset;
+
+    lua_pushvalue(L, fnIdx);
     if (mgr->guardedPCall(0, 0, 0, CConfigManager::LUA_TIMEOUT_DISPATCH_MS, std::format("hl.define_submap(\"{}\")", name)) != LUA_OK) {
         mgr->addError(std::string("hl.define_submap: error in submap \"") + name + "\": " + lua_tostring(L, -1));
         lua_pop(L, 1);
     }
 
-    mgr->m_currentSubmap = prev;
+    mgr->m_currentSubmap      = prev;
+    mgr->m_currentSubmapReset = prevReset;
     return 0;
 }
 

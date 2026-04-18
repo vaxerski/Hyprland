@@ -203,11 +203,11 @@ hl.define_submap("submap1", function()
     hl.bind("p", hl.submap("reset"))
 end)
 
-hl.define_submap("submap2", function()
+hl.define_submap("submap2", "submap1", function()
     hl.bind("o", hl.exec_cmd(terminal))
 end)
 
-hl.define_submap("submap3", function()
+hl.define_submap("submap3", "reset", function()
     hl.bind("o", hl.exec_cmd(terminal))
 end)
 

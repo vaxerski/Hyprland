@@ -308,7 +308,7 @@ namespace {
         {"scroll_button", []() -> ILuaConfigValue* { return new CLuaConfigInt(0, 0, 300); }},
         {"scroll_button_lock", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); }},
         {"scroll_points", []() -> ILuaConfigValue* { return new CLuaConfigString(STRVAL_EMPTY); }},
-        {"scroll_factor", []() -> ILuaConfigValue* { return new CLuaConfigFloat(1.F, 0.F, 2.F); }},
+        {"scroll_factor", []() -> ILuaConfigValue* { return new CLuaConfigFloat(1.F, 0.F, 100.F); }},
         {"transform", []() -> ILuaConfigValue* { return new CLuaConfigInt(-1); }},
         {"output", []() -> ILuaConfigValue* { return new CLuaConfigString(STRVAL_EMPTY); }},
         {"enabled", []() -> ILuaConfigValue* { return new CLuaConfigBool(true); }},
@@ -738,6 +738,16 @@ static int hlWorkspaceRule(lua_State* L) {
 
     ::Layout::Supplementary::algoMatcher()->updateWorkspaceLayouts();
 
+    for (const auto& w : g_pCompositor->getWorkspaces()) {
+        if (!w || w->inert())
+            continue;
+
+        w->updateWindows();
+        w->updateWindowData();
+    }
+
+    g_pCompositor->updateAllWindowsAnimatedDecorationValues();
+
     return 0;
 }
 
@@ -1032,6 +1042,10 @@ static int hlMonitor(lua_State* L) {
     lua_pop(L, 1);
 
     CMonitorRuleParser parser(output);
+
+    const auto         existing = std::ranges::find_if(Config::monitorRuleMgr()->all(), [&output](const auto& rule) { return rule.m_name == output; });
+    if (existing != Config::monitorRuleMgr()->all().end())
+        parser.rule() = *existing;
 
     lua_pushnil(L);
     while (lua_next(L, 1) != 0) {

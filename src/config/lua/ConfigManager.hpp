@@ -98,6 +98,7 @@ namespace Config::Lua {
         bool                       isFirstLaunch() const;
 
         std::string                m_currentSubmap;
+        std::string                m_currentSubmapReset;
 
         UP<CLuaEventHandler>       m_eventHandler;
 
