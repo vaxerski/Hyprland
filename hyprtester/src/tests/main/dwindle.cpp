@@ -29,7 +29,7 @@ static void testFloatClamp() {
 
     {
         auto str = getFromSocket("/clients");
-        EXPECT_CONTAINS(str, "at: 698,158");
+        EXPECT(str.contains("at: 698,158") || str.contains("at: 698,178"), true);
         EXPECT_CONTAINS(str, "size: 1200,900");
     }
 

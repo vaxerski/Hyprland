@@ -267,6 +267,8 @@ namespace {
          [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_noBorder = *static_cast<const Config::BOOL*>(v->data()); }},
         {"no_rounding", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); },
          [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_noRounding = *static_cast<const Config::BOOL*>(v->data()); }},
+        {"rounding", []() -> ILuaConfigValue* { return new CLuaConfigBool(true); },
+         [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_noRounding = !*static_cast<const Config::BOOL*>(v->data()); }},
         {"decorate", []() -> ILuaConfigValue* { return new CLuaConfigBool(true); },
          [](ILuaConfigValue* v, Config::CWorkspaceRule& r) { r.m_decorate = *static_cast<const Config::BOOL*>(v->data()); }},
         {"no_shadow", []() -> ILuaConfigValue* { return new CLuaConfigBool(false); },
