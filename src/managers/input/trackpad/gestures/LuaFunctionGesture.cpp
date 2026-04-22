@@ -17,4 +17,6 @@ void CLuaFunctionGesture::update(const ITrackpadGesture::STrackpadGestureUpdate&
 void CLuaFunctionGesture::end(const ITrackpadGesture::STrackpadGestureEnd& e) {
     if (!Config::Lua::mgr())
         return;
+
+    Config::Lua::mgr()->callLuaFn(m_luaFnId);
 }
