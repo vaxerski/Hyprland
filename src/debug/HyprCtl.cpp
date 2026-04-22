@@ -2263,6 +2263,7 @@ std::string CHyprCtl::getReply(std::string request) {
 
     if (reloadAll) {
         Config::monitorRuleMgr()->scheduleReload();
+        Layout::Supplementary::algoMatcher()->updateWorkspaceLayouts();
 
         g_pInputManager->setKeyboardLayout();     // update kb layout
         g_pInputManager->setPointerConfigs();     // update mouse cfgs

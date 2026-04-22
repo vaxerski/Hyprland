@@ -265,9 +265,7 @@ static int hlVersion(lua_State* L) {
 }
 
 static int hlExecCmd(lua_State* L) {
-    auto* mgr = sc<CConfigManager*>(lua_touserdata(L, lua_upvalueindex(1)));
-
-    auto  cmd = Internal::argStr(L, 1);
+    auto cmd = Internal::argStr(L, 1);
 
     if (cmd.empty())
         return Internal::configError(L, "hl.exec_cmd: expected command as first argument");
@@ -277,7 +275,7 @@ static int hlExecCmd(lua_State* L) {
     if (!rule)
         return rule.error();
 
-    if (mgr->isFirstLaunch())
+    if (Lua::mgr()->isFirstLaunch())
         Config::Supplementary::executor()->spawn(Supplementary::SExecRequest{cmd, !*rule, *rule});
 
     return 0;

@@ -8,6 +8,16 @@ CLuaConfigBool::CLuaConfigBool(Config::BOOL def) : m_default(def), m_data(def) {
 }
 
 SParseError CLuaConfigBool::parse(lua_State* s) {
+    if (lua_isnumber(s, -1)) {
+        auto number = lua_tonumber(s, -1);
+        if (number != 0 && number != 1)
+            return {.errorCode = PARSE_ERROR_BAD_TYPE, .message = "boolean type requires a bool, or 0/1."};
+
+        m_data       = !!number;
+        m_bSetByUser = true;
+        return {.errorCode = PARSE_ERROR_OK};
+    }
+
     if (lua_isboolean(s, -1)) {
         m_data       = lua_toboolean(s, -1);
         m_bSetByUser = true;
