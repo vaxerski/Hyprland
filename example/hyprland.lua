@@ -43,14 +43,10 @@ local menu        = "hyprlauncher"
 -- Or execute your favorite apps at launch like this:
 --
 -- hl.on("hyprland.start", function () 
---   hl.exec_cmd(terminal)
---   hl.exec_cmd("nm-applet")
---   hl.exec_cmd("waybar & hyprpaper & firefox")
+--   hl.dsp.exec_cmd(terminal)()
+--   hl.dsp.exec_cmd("nm-applet")()
+--   hl.dsp.exec_cmd("waybar & hyprpaper & firefox")()
 -- end)
-
--- hl.exec_once(terminal)
--- hl.exec_once("nm-applet")
--- hl.exec_once("waybar & hyprpaper & firefox")
 
 -- Timers now return an object handle.
 -- local demoTimer = hl.timer(function()
@@ -256,7 +252,7 @@ local mainMod = "SUPER" -- Sets "Windows" key as main modifier
 hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd(terminal))
 local closeWindowBind = hl.bind(mainMod .. " + C", hl.dsp.window.close())
 -- closeWindowBind:set_enabled(false)
-hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.exit()'"))
+hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'"))
 hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
 hl.bind(mainMod .. " + V", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(menu))
