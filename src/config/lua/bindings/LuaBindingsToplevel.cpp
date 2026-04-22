@@ -275,8 +275,7 @@ static int hlExecCmd(lua_State* L) {
     if (!rule)
         return rule.error();
 
-    if (Lua::mgr()->isFirstLaunch())
-        Config::Supplementary::executor()->spawn(Supplementary::SExecRequest{cmd, !*rule, *rule});
+    Config::Supplementary::executor()->spawn(Supplementary::SExecRequest{cmd, !*rule, *rule});
 
     return 0;
 }
