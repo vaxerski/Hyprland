@@ -115,7 +115,7 @@ static void testBindKey() {
 static void testLongPress() {
     EXPECT(checkFlag(), false);
     EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.exec_cmd('touch " + flagFile + "'), { long_press = true })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 7, 29)));
     // check no flag on short press
@@ -132,7 +132,7 @@ static void testLongPress() {
 static void testKeyLongPress() {
     EXPECT(checkFlag(), false);
     EXPECT(getFromSocket("/eval hl.bind('Y', hl.dsp.exec_cmd('touch " + flagFile + "'), { long_press = true })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 0, 29)));
     // check no flag on short press
@@ -149,7 +149,7 @@ static void testKeyLongPress() {
 static void testLongPressRelease() {
     EXPECT(checkFlag(), false);
     EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.exec_cmd('touch " + flagFile + "'), { long_press = true })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 7, 29)));
     // check no flag on short press
@@ -166,7 +166,7 @@ static void testLongPressRelease() {
 static void testLongPressOnlyKeyRelease() {
     EXPECT(checkFlag(), false);
     EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.exec_cmd('touch " + flagFile + "'), { long_press = true })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 7, 29)));
     // check no flag on short press
@@ -184,7 +184,7 @@ static void testLongPressOnlyKeyRelease() {
 static void testRepeat() {
     EXPECT(checkFlag(), false);
     EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.exec_cmd('touch " + flagFile + "'), { repeating = true })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 7, 29)));
     // await flag
@@ -204,7 +204,7 @@ static void testRepeat() {
 static void testKeyRepeat() {
     EXPECT(checkFlag(), false);
     EXPECT(getFromSocket("/eval hl.bind('Y', hl.dsp.exec_cmd('touch " + flagFile + "'), { repeating = true })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 0, 29)));
     // await flag
@@ -234,7 +234,7 @@ static void testRepeatRelease() {
 
     EXPECT(ok, true);
     EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.exec_cmd('touch " + flagFile + "'), { repeating = true })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 7, 29)));
     // await flag
@@ -256,7 +256,7 @@ static void testRepeatRelease() {
 static void testRepeatOnlyKeyRelease() {
     EXPECT(checkFlag(), false);
     EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.exec_cmd('touch " + flagFile + "'), { repeating = true })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 7, 29)));
     // await flag
@@ -284,7 +284,7 @@ static void testShortcutBind() {
         return;
     }
     EXPECT(getFromSocket("/dispatch hl.dsp.focus({ window = 'class:keybinds_test' })"), "ok");
-    EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.send_shortcut({ mods = '', key = 'q' }))"), "ok");
+    EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.send_shortcut({ mods = '', key = 'q', window = 'activewindow' }))"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 7, 29)));
     // release keybind
@@ -306,7 +306,7 @@ static void testShortcutBindKey() {
         return;
     }
     EXPECT(getFromSocket("/dispatch hl.dsp.focus({ window = 'class:keybinds_test' })"), "ok");
-    EXPECT(getFromSocket("/eval hl.bind('Y', hl.dsp.send_shortcut({ mods = '', key = 'q' }))"), "ok");
+    EXPECT(getFromSocket("/eval hl.bind('Y', hl.dsp.send_shortcut({ mods = '', key = 'q', window = 'activewindow' }))"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 0, 29)));
     // release keybind
@@ -329,9 +329,9 @@ static void testShortcutLongPress() {
         return;
     }
     EXPECT(getFromSocket("/dispatch hl.dsp.focus({ window = 'class:keybinds_test' })"), "ok");
-    EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.send_shortcut({ mods = '', key = 'q' }), { long_press = true })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_rate = 10 } })"), "ok");
+    EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.send_shortcut({ mods = '', key = 'q', window = 'activewindow' }), { long_press = true })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_rate = 10 } })"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 7, 29)));
     // await repeat delay
@@ -358,9 +358,9 @@ static void testShortcutLongPressKeyRelease() {
         return;
     }
     EXPECT(getFromSocket("/dispatch hl.dsp.focus({ window = 'class:keybinds_test' })"), "ok");
-    EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.send_shortcut({ mods = '', key = 'q' }), { long_press = true })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_rate = 10 } })"), "ok");
+    EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.send_shortcut({ mods = '', key = 'q', window = 'activewindow' }), { long_press = true })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_delay = 100 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_rate = 10 } })"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 7, 29)));
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -385,9 +385,9 @@ static void testShortcutRepeat() {
         return;
     }
     EXPECT(getFromSocket("/dispatch hl.dsp.focus({ window = 'class:keybinds_test' })"), "ok");
-    EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.send_shortcut({ mods = '', key = 'q' }), { repeating = true })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_rate = 5 } })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_delay = 200 } })"), "ok");
+    EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.send_shortcut({ mods = '', key = 'q', window = 'activewindow' }), { repeating = true })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_rate = 5 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_delay = 200 } })"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 7, 29)));
     // await repeat
@@ -415,9 +415,9 @@ static void testShortcutRepeatKeyRelease() {
         return;
     }
     EXPECT(getFromSocket("/dispatch hl.dsp.focus({ window = 'class:keybinds_test' })"), "ok");
-    EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.send_shortcut({ mods = '', key = 'q' }), { repeating = true })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_rate = 5 } })"), "ok");
-    EXPECT(getFromSocket("/eval hl.config({ input = { repeat_delay = 200 } })"), "ok");
+    EXPECT(getFromSocket("/eval hl.bind('SUPER + Y', hl.dsp.send_shortcut({ mods = '', key = 'q', window = 'activewindow' }), { repeating = true })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_rate = 5 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { repeat_delay = 200 } })"), "ok");
     // press keybind
     OK(getFromSocket(pluginKeybindCmd(true, 7, 29)));
     std::this_thread::sleep_for(std::chrono::milliseconds(210));
@@ -478,7 +478,7 @@ static void testBindsAfterScroll() {
     NLog::log("{}Testing binds after scroll", Colors::GREEN);
 
     clearFlag();
-    OK(getFromSocket("/eval hl.bind('Alt_R + w', hl.dsp.exec_cmd('touch " + flagFile + "'))"));
+    OK(getFromSocket("/eval hl.bind('ALT + w', hl.dsp.exec_cmd('touch " + flagFile + "'))"));
 
     // press keybind before scroll
     OK(getFromSocket(pluginKeybindCmd(true, 0, 108))); // Alt_R press
@@ -500,7 +500,7 @@ static void testBindsAfterScroll() {
     OK(getFromSocket(pluginKeybindCmd(false, 0, 108))); // Alt_R release
 
     clearFlag();
-    OK(getFromSocket("/eval hl.unbind('', 'w')"));
+    OK(getFromSocket("/eval hl.unbind('ALT', 'w')"));
 }
 
 static void testSubmapUniversal() {

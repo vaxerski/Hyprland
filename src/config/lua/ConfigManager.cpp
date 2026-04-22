@@ -637,7 +637,6 @@ std::optional<std::string> CConfigManager::eval(const std::string& code) {
         }
 
         out.pop_back();
-        out.pop_back();
 
         return out;
     }

@@ -128,12 +128,12 @@ static bool test() {
     if (!startClient(client))
         return false;
 
-    EXPECT(getFromSocket("/eval hl.config({ input = { emulate_discrete_scroll = 0 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { emulate_discrete_scroll = 0 } })"), "ok");
 
     EXPECT(sendScroll(10), true);
     EXPECT(getLastDelta(client), 10);
 
-    EXPECT(getFromSocket("/eval hl.config({ input = { scroll_factor = 2 } })"), "ok");
+    EXPECT(getFromSocket("r/eval hl.config({ input = { scroll_factor = 2 } })"), "ok");
     EXPECT(sendScroll(10), true);
     EXPECT(getLastDelta(client), 20);
 

@@ -153,7 +153,7 @@ static bool test() {
     // This test ensures that `movecursortocorner`, which expects
     // a single-character direction argument, is parsed correctly.
     Tests::spawnKitty();
-    OK(getFromSocket("/dispatch hl.dsp.cursor.move_to_corner({ corner = 0 })"));
+    OK(getFromSocket("/dispatch hl.dsp.cursor.move_to_corner({ corner = 0, window = 'activewindow' })"));
     const std::string cursorPos1 = getFromSocket("/cursorpos");
     OK(getFromSocket("/eval hl.plugin.test.gesture('left', 4)"));
     const std::string cursorPos2 = getFromSocket("/cursorpos");
