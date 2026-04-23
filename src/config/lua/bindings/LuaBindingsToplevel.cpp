@@ -282,7 +282,7 @@ static int hlExecCmd(lua_State* L) {
 
 static int hlDispatch(lua_State* L) {
     if (!lua_isfunction(L, 1))
-        return Internal::configError(L, "hl.dispatch: expected a dispatcher function (e.g. hl.window.close())");
+        return Internal::configError(L, "hl.dispatch: expected a dispatcher function (e.g. hl.dsp.window.close())");
 
     lua_pushvalue(L, 1);
     int status = LUA_OK;
