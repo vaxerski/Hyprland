@@ -1490,6 +1490,7 @@ SP<ITexture> IHyprRenderer::renderText(const std::string& text, CHyprColor col, 
     pango_layout_context_changed(layoutText);
 
     cairo_set_source_rgba(CAIRO, COLOR.r, COLOR.g, COLOR.b, COLOR.a);
+
     cairo_move_to(CAIRO, 0, 0);
     pango_cairo_show_layout(CAIRO, layoutText);
 
