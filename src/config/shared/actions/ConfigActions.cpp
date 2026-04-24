@@ -35,7 +35,7 @@ UP<CActionState>& Actions::state() {
 }
 
 static PHLWINDOW xtract(std::optional<PHLWINDOW> window) {
-    return window.value_or(Desktop::focusState()->window());
+    return window.has_value() && *window ? *window : Desktop::focusState()->window();
 }
 
 static void updateRelativeCursorCoords() {

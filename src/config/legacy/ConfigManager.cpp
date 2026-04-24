@@ -505,7 +505,7 @@ CConfigManager::CConfigManager() {
         else if (auto p = dc<Config::Values::CGradientValue*>(v.get()))
             registerConfigVar(NAME,
                               Hyprlang::CConfigCustomValueType{&configHandleGradientSet, configHandleGradientDestroy,
-                                                               std::format("{:x}", (int64_t)p->defaultVal().m_colors.begin()->getAsHex()).c_str()});
+                                                               std::format("0x{:x}", (int64_t)p->defaultVal().m_colors.begin()->getAsHex()).c_str()});
         else
             RASSERT(false, "legacy cfg: bad value {}", NAME);
     }
