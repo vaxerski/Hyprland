@@ -1461,10 +1461,8 @@ SP<ITexture> IHyprRenderer::renderText(const std::string& text, CHyprColor col, 
     const auto            FONTSIZE   = pt;
     const auto            COLOR      = col;
 
-    auto                  CAIROSURFACE = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1920, 1080 /* arbitrary, just for size */);
-    auto                  CAIRO        = cairo_create(CAIROSURFACE);
-
-    PangoLayout*          layoutText = pango_cairo_create_layout(CAIRO);
+    PangoContext*         pangoCtx   = pango_font_map_create_context(pango_cairo_font_map_get_default());
+    PangoLayout*          layoutText = pango_layout_new(pangoCtx);
     PangoFontDescription* pangoFD    = pango_font_description_new();
 
     pango_font_description_set_family_static(pangoFD, FONTFAMILY.c_str());
@@ -1472,10 +1470,6 @@ SP<ITexture> IHyprRenderer::renderText(const std::string& text, CHyprColor col, 
     pango_font_description_set_style(pangoFD, italic ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
     pango_font_description_set_weight(pangoFD, sc<PangoWeight>(weight));
     pango_layout_set_font_description(layoutText, pangoFD);
-
-    cairo_set_source_rgba(CAIRO, COLOR.r, COLOR.g, COLOR.b, COLOR.a);
-
-    int textW = 0, textH = 0;
     pango_layout_set_text(layoutText, text.c_str(), -1);
 
     if (maxWidth > 0) {
@@ -1483,35 +1477,25 @@ SP<ITexture> IHyprRenderer::renderText(const std::string& text, CHyprColor col, 
         pango_layout_set_ellipsize(layoutText, PANGO_ELLIPSIZE_END);
     }
 
-    pango_layout_get_size(layoutText, &textW, &textH);
-    textW /= PANGO_SCALE;
-    textH /= PANGO_SCALE;
+    int            textW = 0, textH = 0;
+    PangoRectangle inkRect = {}, logicalRect = {};
+    pango_layout_get_pixel_extents(layoutText, &inkRect, &logicalRect);
+    textW = std::max(logicalRect.width, inkRect.x + inkRect.width);
+    textH = std::max(logicalRect.height, inkRect.y + inkRect.height);
 
-    pango_font_description_free(pangoFD);
-    g_object_unref(layoutText);
-    cairo_destroy(CAIRO);
-    cairo_surface_destroy(CAIROSURFACE);
+    auto CAIROSURFACE = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, textW, textH);
+    auto CAIRO        = cairo_create(CAIROSURFACE);
 
-    CAIROSURFACE = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, textW, textH);
-    CAIRO        = cairo_create(CAIROSURFACE);
-
-    layoutText = pango_cairo_create_layout(CAIRO);
-    pangoFD    = pango_font_description_new();
-
-    pango_font_description_set_family_static(pangoFD, FONTFAMILY.c_str());
-    pango_font_description_set_absolute_size(pangoFD, FONTSIZE * PANGO_SCALE);
-    pango_font_description_set_style(pangoFD, italic ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
-    pango_font_description_set_weight(pangoFD, sc<PangoWeight>(weight));
-    pango_layout_set_font_description(layoutText, pangoFD);
-    pango_layout_set_text(layoutText, text.c_str(), -1);
+    pango_cairo_update_context(CAIRO, pangoCtx);
+    pango_layout_context_changed(layoutText);
 
     cairo_set_source_rgba(CAIRO, COLOR.r, COLOR.g, COLOR.b, COLOR.a);
-
     cairo_move_to(CAIRO, 0, 0);
     pango_cairo_show_layout(CAIRO, layoutText);
 
     pango_font_description_free(pangoFD);
     g_object_unref(layoutText);
+    g_object_unref(pangoCtx);
 
     cairo_surface_flush(CAIROSURFACE);
 
