@@ -109,6 +109,9 @@ namespace Layout::Tiled {
         virtual void                             swapTargets(SP<ITarget> a, SP<ITarget> b);
         virtual void                             moveTargetInDirection(SP<ITarget> t, Math::eDirection dir, bool silent);
 
+        void                                     moveTape(float delta);
+        void                                     snapToGrid();
+
         CBox                                     usableArea();
         SP<SScrollingTargetData>                 dataFor(SP<ITarget> t);
 

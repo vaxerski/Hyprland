@@ -1492,6 +1492,41 @@ std::expected<void, std::string> CScrollingAlgorithm::layoutMsg(const std::strin
     return {};
 }
 
+void CScrollingAlgorithm::moveTape(float delta) {
+    if (delta == 0.F)
+        return;
+
+    m_scrollingData->controller->adjustOffset(-delta);
+    m_scrollingData->recalculate();
+}
+
+void CScrollingAlgorithm::snapToGrid() {
+    if (!Desktop::focusState()->window()) {
+        // are we beyond the tape?
+
+        const auto USABLE     = usableArea();
+        const auto MAX_EXTENT = m_scrollingData->controller->calculateMaxExtent(USABLE);
+
+        if (m_scrollingData->controller->getOffset() > MAX_EXTENT - USABLE.w)
+            m_scrollingData->controller->adjustOffset(999999999);
+
+        return;
+    }
+
+    auto currentData = dataFor(Desktop::focusState()->window()->layoutTarget());
+
+    if (!currentData)
+        return;
+
+    auto currentCol = currentData->column.lock();
+
+    if (!currentCol)
+        return;
+
+    m_scrollingData->fitCol(currentCol);
+    m_scrollingData->recalculate();
+}
+
 std::optional<Vector2D> CScrollingAlgorithm::predictSizeForNewTarget() {
     return std::nullopt;
 }
