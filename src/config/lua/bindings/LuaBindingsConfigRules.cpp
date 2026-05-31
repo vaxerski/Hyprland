@@ -410,19 +410,20 @@ static int hlAnimation(lua_State* L) {
         return 0;
     }
 
-    CLuaConfigFloat speedParser(0.F, 0.F, 100.F);
-    auto            speedErr = Internal::parseTableField(L, 1, "speed", speedParser);
-    if (speedErr.errorCode != PARSE_ERROR_OK)
-        return Internal::configError(L, std::format("hl.animation(\"{}\"): {}", leaf, speedErr.message));
-
-    float speed = speedParser.parsed();
-
-    if (speed <= 0)
-        return Internal::configError(L, std::format("hl.animation(\"{}\"): speed must be greater than 0", leaf));
-
     std::string curveName;
+    float speed = 1.F;
 
     if (Internal::hasTableField(L, 1, "bezier")) {
+        CLuaConfigFloat speedParser(0.F, 0.F, 100.F);
+        auto            speedErr = Internal::parseTableField(L, 1, "speed", speedParser);
+        if (speedErr.errorCode != PARSE_ERROR_OK)
+            return Internal::configError(L, std::format("hl.animation(\"{}\"): {}", leaf, speedErr.message));
+
+        speed = speedParser.parsed();
+
+        if (speed <= 0)
+            return Internal::configError(L, std::format("hl.animation(\"{}\"): speed must be greater than 0", leaf));
+
         CLuaConfigString bezierParser("");
         auto             bezierErr = Internal::parseTableField(L, 1, "bezier", bezierParser);
         if (bezierErr.errorCode != PARSE_ERROR_OK)
